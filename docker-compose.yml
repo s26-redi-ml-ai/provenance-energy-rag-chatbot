@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - .env.example
+    environment:
+      DATA_DIR: /app/data
+      VECTOR_STORE_PATH: /app/data/vector_store
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend-data:/app/data
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      - backend
+    environment:
+      BACKEND_URL: http://backend:8000
+    ports:
+      - "8501:8501"
+
+volumes:
+  backend-data:

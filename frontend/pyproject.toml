@@ -1,0 +1,13 @@
+[project]
+name = "trustworthy-rag-streamlit-frontend"
+version = "0.1.0"
+description = "Streamlit frontend for the trustworthy RAG chatbot."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27.2",
+    "streamlit>=1.41.0",
+]
+
+[tool.uv]
+package = false
