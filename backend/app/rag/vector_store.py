@@ -1,0 +1,158 @@
+import math
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any
+
+from app.core.config import Settings
+from app.rag.types import DocumentChunk, RetrievedChunk
+
+
+class VectorStore(ABC):
+    @abstractmethod
+    def add_chunks(self, chunks: list[DocumentChunk], embeddings: list[list[float]]) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def semantic_search(self, query_embedding: list[float], top_k: int) -> list[RetrievedChunk]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def keyword_search(self, terms: list[str], top_k: int) -> list[RetrievedChunk]:
+        raise NotImplementedError
+
+
+class InMemoryVectorStore(VectorStore):
+    def __init__(self) -> None:
+        self._rows: list[tuple[DocumentChunk, list[float]]] = []
+
+    def add_chunks(self, chunks: list[DocumentChunk], embeddings: list[list[float]]) -> None:
+        for chunk, embedding in zip(chunks, embeddings, strict=True):
+            self._rows = [row for row in self._rows if row[0].chunk_id != chunk.chunk_id]
+            self._rows.append((chunk, embedding))
+
+    def semantic_search(self, query_embedding: list[float], top_k: int) -> list[RetrievedChunk]:
+        scored = [
+            RetrievedChunk(chunk=chunk, relevance_score=_cosine(query_embedding, embedding))
+            for chunk, embedding in self._rows
+        ]
+        return sorted(scored, key=lambda item: item.relevance_score, reverse=True)[:top_k]
+
+    def keyword_search(self, terms: list[str], top_k: int) -> list[RetrievedChunk]:
+        lowered_terms = [term.lower() for term in terms]
+        matches: list[RetrievedChunk] = []
+        for chunk, _embedding in self._rows:
+            text = chunk.text.lower()
+            if any(term in text for term in lowered_terms):
+                matches.append(RetrievedChunk(chunk=chunk, relevance_score=0.96, source="keyword"))
+        return matches[:top_k]
+
+
+class ChromaVectorStore(VectorStore):
+    def __init__(self, settings: Settings) -> None:
+        import chromadb
+
+        Path(settings.resolved_vector_store_path).mkdir(parents=True, exist_ok=True)
+        self.client = chromadb.PersistentClient(path=str(settings.resolved_vector_store_path))
+        self.collection = self.client.get_or_create_collection(
+            name=settings.vector_collection_name,
+            metadata={"hnsw:space": "cosine"},
+        )
+
+    def add_chunks(self, chunks: list[DocumentChunk], embeddings: list[list[float]]) -> None:
+        if not chunks:
+            return
+        self.collection.upsert(
+            ids=[chunk.chunk_id for chunk in chunks],
+            embeddings=embeddings,
+            documents=[chunk.text for chunk in chunks],
+            metadatas=[_metadata_from_chunk(chunk) for chunk in chunks],
+        )
+
+    def semantic_search(self, query_embedding: list[float], top_k: int) -> list[RetrievedChunk]:
+        if self.collection.count() == 0:
+            return []
+        results = self.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=min(top_k, self.collection.count()),
+            include=["documents", "metadatas", "distances"],
+        )
+        return _retrieved_from_chroma(results)
+
+    def keyword_search(self, terms: list[str], top_k: int) -> list[RetrievedChunk]:
+        if not terms or self.collection.count() == 0:
+            return []
+        rows = self.collection.get(include=["documents", "metadatas"])
+        lowered_terms = [term.lower() for term in terms]
+        matches: list[RetrievedChunk] = []
+        documents = rows.get("documents", [])
+        metadatas = rows.get("metadatas", [])
+        for document, metadata in zip(documents, metadatas, strict=False):
+            if document and any(term in document.lower() for term in lowered_terms):
+                matches.append(
+                    RetrievedChunk(
+                        chunk=_chunk_from_metadata(metadata or {}, document),
+                        relevance_score=0.96,
+                        source="keyword",
+                    )
+                )
+        return matches[:top_k]
+
+
+def create_vector_store(settings: Settings) -> VectorStore:
+    if settings.vector_store_provider.lower() in {"memory", "in-memory", "test"}:
+        return InMemoryVectorStore()
+    return ChromaVectorStore(settings)
+
+
+def _metadata_from_chunk(chunk: DocumentChunk) -> dict[str, str | int | float | bool]:
+    return {
+        "chunk_id": chunk.chunk_id,
+        "document_id": chunk.document_id,
+        "filename": chunk.filename,
+        "page": chunk.page if chunk.page is not None else -1,
+        "section": chunk.section or "",
+        "source_path": chunk.source_path,
+        "upload_time": chunk.upload_time,
+    }
+
+
+def _chunk_from_metadata(metadata: dict[str, Any], text: str) -> DocumentChunk:
+    page = metadata.get("page")
+    return DocumentChunk(
+        chunk_id=str(metadata.get("chunk_id", "")),
+        document_id=str(metadata.get("document_id", "")),
+        filename=str(metadata.get("filename", "")),
+        text=text,
+        page=None if page in {None, "", -1} else int(page),
+        section=str(metadata.get("section") or "") or None,
+        source_path=str(metadata.get("source_path", "")),
+        upload_time=str(metadata.get("upload_time", "")),
+    )
+
+
+def _retrieved_from_chroma(results: dict[str, Any]) -> list[RetrievedChunk]:
+    documents = results.get("documents", [[]])[0]
+    metadatas = results.get("metadatas", [[]])[0]
+    distances = results.get("distances", [[]])[0]
+
+    retrieved: list[RetrievedChunk] = []
+    for document, metadata, distance in zip(documents, metadatas, distances, strict=False):
+        score = max(0.0, min(1.0, 1.0 - float(distance)))
+        retrieved.append(
+            RetrievedChunk(
+                chunk=_chunk_from_metadata(metadata or {}, document or ""),
+                relevance_score=score,
+            )
+        )
+    return retrieved
+
+
+def _cosine(left: list[float], right: list[float]) -> float:
+    if not left or not right or len(left) != len(right):
+        return 0.0
+    numerator = sum(a * b for a, b in zip(left, right, strict=True))
+    left_norm = math.sqrt(sum(a * a for a in left))
+    right_norm = math.sqrt(sum(b * b for b in right))
+    if left_norm == 0 or right_norm == 0:
+        return 0.0
+    return max(0.0, min(1.0, numerator / (left_norm * right_norm)))
