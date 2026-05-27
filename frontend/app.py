@@ -328,6 +328,25 @@ def lookup_fault_code(code: str, backend_url: str, top_k: int) -> dict[str, Any]
         return response.json()
 
 
+
+
+def api_error_message(exc: Exception) -> str:
+    """Return backend validation details instead of a generic HTTP error."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        response = exc.response
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {}
+
+        detail = payload.get("detail") if isinstance(payload, dict) else None
+        if detail:
+            return f"{response.status_code} {response.reason_phrase}: {detail}"
+        return f"{response.status_code} {response.reason_phrase}: {response.text}"
+
+    return str(exc)
+
+
 # ── UTILITY HELPERS ───────────────────────────────────────────────────────────
 
 def sanitize_text(value: Any, default: str = "") -> str:
@@ -559,7 +578,7 @@ with st.sidebar:
                     st.success(f"Indexed safely! Created {result.get('chunks_created', 'N/A')} vector records.")
                     fetch_and_cache_documents(backend_url, force_refresh=True)
                 except Exception as exc:
-                    st.error(f"Ingestion Pipeline Failed: {exc}")
+                    st.error(f"Ingestion Pipeline Failed: {api_error_message(exc)}")
 
     st.divider()
     
@@ -644,7 +663,7 @@ with st.container(border=True):
                     st.session_state.fault_lookup_error = ""
                 except Exception as exc:
                     st.session_state.fault_lookup_result = None
-                    st.session_state.fault_lookup_error = str(exc)
+                    st.session_state.fault_lookup_error = api_error_message(exc)
 
     if st.session_state.fault_lookup_error:
         st.error(st.session_state.fault_lookup_error)
@@ -672,7 +691,7 @@ if question:
                     "confidence": "error",
                     "mode": mode,
                     "sources": [],
-                    "warnings": [str(exc)],
+                    "warnings": [api_error_message(exc)],
                 }
 
         assistant_message = {"role": "assistant", **response}
