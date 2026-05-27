@@ -37,9 +37,9 @@ def load_document(path: Path, filename: str) -> list[LoadedText]:
     logger.info("Loading document: %s (type: %s)", filename, suffix)
 
     if suffix not in _SUPPORTED_EXTENSIONS:
+        allowed_types = ", ".join(sorted(_SUPPORTED_EXTENSIONS))
         raise DocumentLoadingError(
-            "Unsupported file type '%s'. Allowed types: %s."
-            % (suffix, ", ".join(sorted(_SUPPORTED_EXTENSIONS)))
+            f"Unsupported file type '{suffix}'. Allowed types: {allowed_types}."
         )
 
     try:
@@ -56,12 +56,10 @@ def load_document(path: Path, filename: str) -> list[LoadedText]:
     except Exception as exc:  # noqa: BLE001
         logger.exception("Unexpected parser failure for %s", filename)
         raise DocumentLoadingError(
-            "Could not extract text from '%s' due to an internal error." % filename
+            f"Could not extract text from '{filename}' due to an internal error."
         ) from exc
 
-    logger.info(
-        "Successfully loaded %d block(s) from %s", len(result), filename
-    )
+    logger.info("Successfully loaded %d block(s) from %s", len(result), filename)
     return result
 
 
@@ -74,13 +72,10 @@ def _load_pdf(path: Path) -> list[LoadedText]:
     try:
         reader = PdfReader(str(path))
     except Exception as exc:  # noqa: BLE001
-        raise DocumentLoadingError(
-            "The PDF file appears to be corrupted or unreadable."
-        ) from exc
+        raise DocumentLoadingError("The PDF file appears to be corrupted or unreadable.") from exc
 
     pages: list[LoadedText] = []
     total_pages = len(reader.pages)
-
 
     for index, page in enumerate(reader.pages, start=1):
         raw = page.extract_text() or ""
@@ -88,11 +83,17 @@ def _load_pdf(path: Path) -> list[LoadedText]:
         if text:
             pages.append(LoadedText(text=text, page=index))
         else:
-            logger.debug("Page %d/%d yielded no digital text, checking for OCR.", index, total_pages)
-
+            logger.debug(
+                "Page %d/%d yielded no digital text, checking for OCR.",
+                index,
+                total_pages,
+            )
 
     if not pages:
-        logger.info("No digital text layer detected in '%s'. Falling back to OCR processing...", path.name)
+        logger.info(
+            "No digital text layer detected in '%s'. Falling back to OCR processing...",
+            path.name,
+        )
         pages = _execute_pdf_ocr(path)
 
     if not pages:
@@ -112,26 +113,35 @@ def _execute_pdf_ocr(path: Path) -> list[LoadedText]:
     try:
         import pytesseract
         from pdf2image import convert_from_path
-    except ImportError:
-        logger.critical("OCR dependencies (pytesseract/pdf2image) are missing in the local environment.")
-        raise DocumentLoadingError(
-            "This document is a scanned PDF and requires OCR tools. Please install 'tesseract' and 'poppler'."
+    except ImportError as exc:
+        logger.critical(
+            "OCR dependencies (pytesseract/pdf2image) are missing in the local environment."
         )
+        raise DocumentLoadingError(
+            "This document is a scanned PDF and requires OCR tools. Please install "
+            "'tesseract' and 'poppler'."
+        ) from exc
 
     ocr_pages: list[LoadedText] = []
     try:
         images = convert_from_path(str(path), dpi=200)
-        
+
         for index, img in enumerate(images, start=1):
             raw_ocr_text = pytesseract.image_to_string(img, lang="eng")
             cleaned_ocr = clean_text(raw_ocr_text)
             if cleaned_ocr:
                 ocr_pages.append(LoadedText(text=cleaned_ocr, page=index))
-                
-        logger.info("Successfully completed OCR processing for %d page(s) of '%s'", len(ocr_pages), path.name)
-    except Exception as ocr_exc:
-        logger.error("OCR execution pipeline failed for %s: %s", path.name, str(ocr_exc))
-        raise DocumentLoadingError("Failed to extract text from scanned PDF via OCR: %s" % str(ocr_exc)) from ocr_exc
+
+        logger.info(
+            "Successfully completed OCR processing for %d page(s) of '%s'",
+            len(ocr_pages),
+            path.name,
+        )
+    except Exception as ocr_exc:  # noqa: BLE001
+        logger.error("OCR execution pipeline failed for %s: %s", path.name, ocr_exc)
+        raise DocumentLoadingError(
+            f"Failed to extract text from scanned PDF via OCR: {ocr_exc}"
+        ) from ocr_exc
 
     return ocr_pages
 
@@ -141,9 +151,7 @@ def _load_docx(path: Path) -> list[LoadedText]:
     try:
         document = DocxDocument(str(path))
     except Exception as exc:  # noqa: BLE001
-        raise DocumentLoadingError(
-            "The DOCX file appears to be corrupted or unreadable."
-        ) from exc
+        raise DocumentLoadingError("The DOCX file appears to be corrupted or unreadable.") from exc
 
     blocks: list[tuple[str, str | None]] = []
     current_section: str | None = None
@@ -175,9 +183,7 @@ def _load_docx(path: Path) -> list[LoadedText]:
             loaded.append(LoadedText(text=cleaned, page=None, section=section))
 
     if not loaded:
-        raise DocumentLoadingError(
-            "No extractable text was found in the DOCX file."
-        )
+        raise DocumentLoadingError("No extractable text was found in the DOCX file.")
 
     logger.debug("Extracted %d section block(s) from DOCX.", len(loaded))
     return loaded
@@ -188,7 +194,9 @@ def _load_plain_text(path: Path) -> list[LoadedText]:
     raw = path.read_text(encoding="utf-8", errors="ignore")
     text = clean_text(raw)
     if not text:
-        raise DocumentLoadingError("The uploaded text file is empty or contains no readable content.")
+        raise DocumentLoadingError(
+            "The uploaded text file is empty or contains no readable content."
+        )
     return [LoadedText(text=text, page=None)]
 
 
@@ -197,5 +205,7 @@ def _load_markdown(path: Path) -> list[LoadedText]:
     raw = path.read_text(encoding="utf-8", errors="ignore")
     text = clean_text(strip_markdown(raw))
     if not text:
-        raise DocumentLoadingError("The uploaded Markdown file is empty or contains no readable content.")
+        raise DocumentLoadingError(
+            "The uploaded Markdown file is empty or contains no readable content."
+        )
     return [LoadedText(text=text, page=None)]
