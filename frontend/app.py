@@ -513,7 +513,7 @@ def render_fault_lookup(result: dict[str, Any] | None) -> None:
             }
         )
 
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    st.dataframe(rows, width="stretch", hide_index=True)
 
     for match in matches:
         label = (
@@ -569,7 +569,7 @@ with st.sidebar:
         if st.button(
             "Parse & Index Document",
             type="primary",
-            use_container_width=True,
+            width="stretch",
             key="index_selected_document",
         ):
             with st.spinner("Processing embeddings..."):
@@ -599,8 +599,10 @@ with st.sidebar:
                 unsafe_allow_html=True,
             )
             
-    if st.button("Clear Interactive Session", use_container_width=True):
+    if st.button("Clear Interactive Session", width="stretch"):
         st.session_state.messages = [st.session_state.messages[0]]
+        st.session_state.fault_lookup_result = None
+        st.session_state.fault_lookup_error = ""
         st.rerun()
 
 
@@ -645,7 +647,7 @@ with st.container(border=True):
         submitted_lookup = st.form_submit_button(
             "Lookup code",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         )
 
     if submitted_lookup:

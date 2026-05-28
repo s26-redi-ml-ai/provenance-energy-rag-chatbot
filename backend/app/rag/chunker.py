@@ -54,17 +54,17 @@ def chunk_loaded_texts(
             window = words[start : start + chunk_size]
             if not window:
                 continue
-            
+
             global_chunk_index += 1
             page_part = f"p{item.page}" if item.page is not None else "pna"
-            
+
             chunk_id = f"{document_id}_{page_part}_c{global_chunk_index}"
             raw_text = " ".join(window).strip()
             w_count = len(window)
             c_count = len(raw_text)
             unique_words = {w.lower() for w in window}
             lexical_density = round(len(unique_words) / w_count, 3) if w_count > 0 else 0.0
-            
+
             chunks.append(
                 DocumentChunk(
                     chunk_id=chunk_id,
@@ -75,7 +75,6 @@ def chunk_loaded_texts(
                     section=section,
                     source_path=str(source_path),
                     upload_time=upload_time,
-            
                     metadata={
                         "stat_word_count": w_count,
                         "stat_char_count": c_count,
@@ -86,7 +85,7 @@ def chunk_loaded_texts(
             )
             if start + chunk_size >= len(words):
                 break
-                
+
     logger.info("Successfully generated %d chunks for document: %s", len(chunks), filename)
     return chunks
 
