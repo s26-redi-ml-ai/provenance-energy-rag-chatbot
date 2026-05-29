@@ -1,4 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+MetadataValue = str | int | float | bool
 
 
 @dataclass(frozen=True)
@@ -18,6 +20,7 @@ class DocumentChunk:
     section: str | None
     source_path: str
     upload_time: str
+    metadata: dict[str, MetadataValue] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

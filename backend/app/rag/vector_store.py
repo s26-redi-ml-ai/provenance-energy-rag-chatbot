@@ -113,11 +113,26 @@ def _metadata_from_chunk(chunk: DocumentChunk) -> dict[str, str | int | float | 
         "section": chunk.section or "",
         "source_path": chunk.source_path,
         "upload_time": chunk.upload_time,
+        **chunk.metadata,
     }
 
 
 def _chunk_from_metadata(metadata: dict[str, Any], text: str) -> DocumentChunk:
     page = metadata.get("page")
+    known_keys = {
+        "chunk_id",
+        "document_id",
+        "filename",
+        "page",
+        "section",
+        "source_path",
+        "upload_time",
+    }
+    extra_metadata = {
+        str(key): value
+        for key, value in metadata.items()
+        if key not in known_keys and isinstance(value, str | int | float | bool)
+    }
     return DocumentChunk(
         chunk_id=str(metadata.get("chunk_id", "")),
         document_id=str(metadata.get("document_id", "")),
@@ -127,6 +142,7 @@ def _chunk_from_metadata(metadata: dict[str, Any], text: str) -> DocumentChunk:
         section=str(metadata.get("section") or "") or None,
         source_path=str(metadata.get("source_path", "")),
         upload_time=str(metadata.get("upload_time", "")),
+        metadata=extra_metadata,
     )
 
 
