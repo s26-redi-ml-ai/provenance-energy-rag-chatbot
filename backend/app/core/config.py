@@ -1,3 +1,5 @@
+"""Environment-backed application settings for the backend."""
+
 from functools import lru_cache
 from pathlib import Path
 
@@ -6,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Typed settings loaded from environment variables and .env files."""
+
     app_name: str = "Trustworthy RAG Chatbot"
     app_env: str = "development"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
@@ -48,37 +52,45 @@ class Settings(BaseSettings):
     @field_validator("chunk_overlap")
     @classmethod
     def overlap_must_be_smaller_than_chunk_size(cls, value: int) -> int:
+        """Validate chunk overlap before settings are used."""
         if value < 0:
             raise ValueError("CHUNK_OVERLAP must be non-negative")
         return value
 
     @property
     def raw_data_dir(self) -> Path:
+        """Return the directory where uploaded source files are stored."""
         return self.data_dir / "raw"
 
     @property
     def processed_data_dir(self) -> Path:
+        """Return the directory for document registry and cache files."""
         return self.data_dir / "processed"
 
     @property
     def resolved_vector_store_path(self) -> Path:
+        """Return the configured vector-store path or the default data path."""
         return self.vector_store_path or self.data_dir / "vector_store"
 
     @property
     def allowed_extensions(self) -> set[str]:
+        """Return allowed upload extensions as a normalized set."""
         return {item.strip().lower() for item in self.allowed_file_types.split(",") if item.strip()}
 
     @property
     def max_upload_size_bytes(self) -> int:
+        """Return the configured upload limit converted from MB to bytes."""
         return self.max_upload_size_mb * 1024 * 1024
 
     @property
     def cors_origin_list(self) -> list[str]:
+        """Return CORS origins as a list for FastAPI middleware."""
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
 @lru_cache
 def get_settings() -> Settings:
+    """Load settings once and reuse them across the running process."""
     settings = Settings()
     # ADD THIS LINE FOR DEBUGGING:
     print(f"\n🚀 DEBUG: Active LLM Provider is set to -> {settings.llm_provider}\n")

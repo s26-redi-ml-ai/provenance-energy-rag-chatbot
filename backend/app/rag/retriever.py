@@ -1,3 +1,5 @@
+"""Retriever that combines semantic search with exact fault-code matching."""
+
 import re
 
 from app.core.config import Settings
@@ -14,6 +16,8 @@ COMPACT_CODE_RE = re.compile(r"\b([A-Z]\d{1,3})\b", re.IGNORECASE)
 
 
 class Retriever:
+    """Coordinates semantic retrieval and exact-code keyword retrieval."""
+
     def __init__(
         self,
         *,
@@ -21,11 +25,13 @@ class Retriever:
         embeddings: EmbeddingProvider,
         vector_store: VectorStore,
     ) -> None:
+        """Store retriever dependencies from the service layer."""
         self.settings = settings
         self.embeddings = embeddings
         self.vector_store = vector_store
 
     def retrieve(self, question: str, top_k: int | None = None) -> list[RetrievedChunk]:
+        """Find the strongest evidence chunks for a user question."""
         limit = top_k or self.settings.top_k
         query_embedding = self.embeddings.embed_query(question)
         semantic = self.vector_store.semantic_search(query_embedding, top_k=max(limit * 2, limit))
@@ -46,6 +52,7 @@ class Retriever:
 
 
 def extract_exact_terms(question: str) -> list[str]:
+    """Extract possible fault-code variants from a user question."""
     if not FAULT_CONTEXT_RE.search(question):
         return []
 

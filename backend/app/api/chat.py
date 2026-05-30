@@ -1,3 +1,5 @@
+"""Chat endpoint that forwards user questions to the RAG service."""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -14,4 +16,5 @@ def chat(
     request: ChatRequest,
     rag_service: Annotated[RAGService, Depends(get_rag_service)],
 ) -> ChatResponse:
+    """Answer a user question by delegating to the RAG service."""
     return rag_service.chat(request)

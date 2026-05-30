@@ -68,3 +68,10 @@ Thumbs.db
 # Keep lockfiles committed
 !backend/uv.lock
 !frontend/uv.lock
+
+# Private keys and certificates
+*.pem
+*.key
+*.crt
+*.p12
+*.p8

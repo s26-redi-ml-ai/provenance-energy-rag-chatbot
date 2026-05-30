@@ -1,3 +1,5 @@
+"""Streamlit frontend for upload, chat, citations, and fault-code lookup."""
+
 from __future__ import annotations
 
 import os
@@ -328,6 +330,25 @@ def lookup_fault_code(code: str, backend_url: str, top_k: int) -> dict[str, Any]
         return response.json()
 
 
+
+
+def api_error_message(exc: Exception) -> str:
+    """Return backend validation details instead of a generic HTTP error."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        response = exc.response
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {}
+
+        detail = payload.get("detail") if isinstance(payload, dict) else None
+        if detail:
+            return f"{response.status_code} {response.reason_phrase}: {detail}"
+        return f"{response.status_code} {response.reason_phrase}: {response.text}"
+
+    return str(exc)
+
+
 # ── UTILITY HELPERS ───────────────────────────────────────────────────────────
 
 def sanitize_text(value: Any, default: str = "") -> str:
@@ -359,6 +380,8 @@ def get_confidence_class(confidence: str) -> str:
 
 # ── APP STATE INITIALIZATION ──────────────────────────────────────────────────
 
+# Streamlit reruns the script after every interaction, so persistent UI state
+# lives in st.session_state instead of normal local variables.
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
@@ -494,7 +517,7 @@ def render_fault_lookup(result: dict[str, Any] | None) -> None:
             }
         )
 
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    st.dataframe(rows, width="stretch", hide_index=True)
 
     for match in matches:
         label = (
@@ -550,7 +573,7 @@ with st.sidebar:
         if st.button(
             "Parse & Index Document",
             type="primary",
-            use_container_width=True,
+            width="stretch",
             key="index_selected_document",
         ):
             with st.spinner("Processing embeddings..."):
@@ -559,7 +582,7 @@ with st.sidebar:
                     st.success(f"Indexed safely! Created {result.get('chunks_created', 'N/A')} vector records.")
                     fetch_and_cache_documents(backend_url, force_refresh=True)
                 except Exception as exc:
-                    st.error(f"Ingestion Pipeline Failed: {exc}")
+                    st.error(f"Ingestion Pipeline Failed: {api_error_message(exc)}")
 
     st.divider()
     
@@ -580,8 +603,10 @@ with st.sidebar:
                 unsafe_allow_html=True,
             )
             
-    if st.button("Clear Interactive Session", use_container_width=True):
+    if st.button("Clear Interactive Session", width="stretch"):
         st.session_state.messages = [st.session_state.messages[0]]
+        st.session_state.fault_lookup_result = None
+        st.session_state.fault_lookup_error = ""
         st.rerun()
 
 
@@ -626,7 +651,7 @@ with st.container(border=True):
         submitted_lookup = st.form_submit_button(
             "Lookup code",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         )
 
     if submitted_lookup:
@@ -644,7 +669,7 @@ with st.container(border=True):
                     st.session_state.fault_lookup_error = ""
                 except Exception as exc:
                     st.session_state.fault_lookup_result = None
-                    st.session_state.fault_lookup_error = str(exc)
+                    st.session_state.fault_lookup_error = api_error_message(exc)
 
     if st.session_state.fault_lookup_error:
         st.error(st.session_state.fault_lookup_error)
@@ -672,7 +697,7 @@ if question:
                     "confidence": "error",
                     "mode": mode,
                     "sources": [],
-                    "warnings": [str(exc)],
+                    "warnings": [api_error_message(exc)],
                 }
 
         assistant_message = {"role": "assistant", **response}

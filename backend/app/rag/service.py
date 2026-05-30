@@ -1,3 +1,5 @@
+"""Main RAG orchestration service used by the API layer."""
+
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,7 +30,10 @@ from app.utils.text_cleaning import make_snippet
 
 
 class RAGService:
+    """Coordinate uploads, retrieval, generation, provenance, and response caching."""
+
     def __init__(self, settings: Settings) -> None:
+        """Create the providers and persistent registries used by the RAG workflow."""
         self.settings = settings
         self.settings.raw_data_dir.mkdir(parents=True, exist_ok=True)
         self.settings.processed_data_dir.mkdir(parents=True, exist_ok=True)
@@ -53,6 +58,8 @@ class RAGService:
         )
 
     def index_file(self, *, document_id: str, filename: str, path: Path) -> UploadResponse:
+        """Extract, chunk, embed, store, and register one uploaded document."""
+        # Convert the uploaded file into loaded text blocks before chunking.
         loaded = load_document(path, filename)
         upload_time = datetime.now(UTC).isoformat()
         chunks = chunk_loaded_texts(
@@ -67,6 +74,7 @@ class RAGService:
         if not chunks:
             raise DocumentLoadingError("No chunks could be created from the uploaded document.")
 
+        # Embeddings make each chunk searchable by meaning in the vector store.
         embeddings = self.embeddings.embed_documents([chunk.text for chunk in chunks])
         self.vector_store.add_chunks(chunks, embeddings)
         self.registry.upsert(
@@ -87,9 +95,11 @@ class RAGService:
         )
 
     def list_documents(self) -> list[DocumentMetadata]:
+        """Return document metadata from the local registry for the UI and API."""
         return self.registry.list_documents()
 
     def lookup_fault_code(self, request: FaultCodeLookupRequest) -> FaultCodeLookupResponse:
+        """Find exact fault-code matches across indexed chunks for lookup-table display."""
         normalized_terms = _fault_lookup_terms(request.code)
         warnings: list[str] = []
         if not normalized_terms:
@@ -145,6 +155,8 @@ class RAGService:
         )
 
     def chat(self, request: ChatRequest) -> ChatResponse:
+        """Answer a user question using document retrieval, generation, and guardrails."""
+        # Cache first so repeated questions do not waste LLM API calls.
         cache_key = self._response_cache_key(request)
         cached_response = self._get_cached_response(cache_key)
         if cached_response is not None:
@@ -155,6 +167,7 @@ class RAGService:
             self._cache_response(cache_key, response)
             return response
 
+        # Document and hybrid modes must retrieve evidence before answering.
         retrieved = self.retriever.retrieve(request.question, request.top_k)
         if not retrieved:
             if request.mode == "hybrid" and self.settings.allow_general_knowledge:
@@ -215,6 +228,7 @@ class RAGService:
         request: ChatRequest,
         warnings: list[str] | None = None,
     ) -> ChatResponse:
+        """Generate a clearly labeled non-grounded answer when the mode permits it."""
         warnings = list(warnings or [])
         if not self.settings.allow_general_knowledge:
             return ChatResponse(
@@ -248,6 +262,7 @@ class RAGService:
         )
 
     def _response_cache_key(self, request: ChatRequest) -> str:
+        """Build a cache key that changes when documents or core settings change."""
         documents = self.registry.list_documents()
         settings_fingerprint = {
             "llm_provider": self.settings.llm_provider,
@@ -264,6 +279,7 @@ class RAGService:
         )
 
     def _get_cached_response(self, cache_key: str) -> ChatResponse | None:
+        """Return a cached chat response and annotate it for transparency."""
         if self.response_cache is None:
             return None
 
@@ -278,11 +294,13 @@ class RAGService:
         return response
 
     def _cache_response(self, cache_key: str, response: ChatResponse) -> None:
+        """Persist a chat response when local response caching is enabled."""
         if self.response_cache is not None:
             self.response_cache.set(cache_key, response)
 
 
 def _fault_lookup_terms(code: str) -> list[str]:
+    """Expand one fault-code query into equivalent searchable forms."""
     cleaned = " ".join(code.strip().upper().split())
     if not cleaned:
         return []
@@ -321,6 +339,7 @@ def _fault_lookup_terms(code: str) -> list[str]:
 
 
 def _matched_fault_terms(text: str, terms: list[str]) -> list[str]:
+    """Return normalized lookup terms that occur as exact terms in a chunk."""
     matches: list[str] = []
     for term in terms:
         pattern = re.compile(
@@ -333,6 +352,7 @@ def _matched_fault_terms(text: str, terms: list[str]) -> list[str]:
 
 
 def _fault_lookup_score(matched_terms: list[str]) -> float:
+    """Score exact fault-code matches higher when descriptive terms are present."""
     has_descriptive_term = any(
         keyword in term.lower()
         for term in matched_terms
@@ -345,6 +365,7 @@ def _fault_lookup_score(matched_terms: list[str]) -> float:
 
 
 def _confidence_from_sources(retrieved: list) -> ConfidenceLevel:
+    """Map retrieval strength into the low/medium/high confidence label."""
     if not retrieved:
         return "low"
     best = retrieved[0].relevance_score

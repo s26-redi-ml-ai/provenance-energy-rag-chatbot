@@ -1,9 +1,12 @@
+"""Helpers that convert retrieved chunks into user-visible source cards."""
+
 from app.models.schemas import SourceReference
 from app.rag.types import RetrievedChunk
 from app.utils.text_cleaning import make_snippet
 
 
 def build_source_references(retrieved: list[RetrievedChunk]) -> list[SourceReference]:
+    """Convert retrieved chunks into structured source references."""
     return [
         SourceReference(
             source_id=f"Source {index}",
