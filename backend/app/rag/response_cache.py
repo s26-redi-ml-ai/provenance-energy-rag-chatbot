@@ -1,3 +1,5 @@
+"""SQLite-backed cache for repeated chat responses."""
+
 from __future__ import annotations
 
 import hashlib
@@ -12,7 +14,10 @@ from app.models.schemas import ChatRequest, ChatResponse, DocumentMetadata
 
 
 class ResponseCache:
+    """Thread-safe SQLite cache for ChatResponse payloads."""
+
     def __init__(self, path: Path, ttl_seconds: int) -> None:
+        """Create the cache database and remember the TTL setting."""
         self.path = path
         self.ttl_seconds = ttl_seconds
         self._lock = threading.Lock()
@@ -20,6 +25,7 @@ class ResponseCache:
         self._init_db()
 
     def get(self, cache_key: str) -> ChatResponse | None:
+        """Return a cached response when present and not expired."""
         with self._lock, sqlite3.connect(self.path) as connection:
             row = connection.execute(
                 "SELECT payload, created_at FROM response_cache WHERE cache_key = ?",
@@ -40,6 +46,7 @@ class ResponseCache:
             return ChatResponse.model_validate_json(payload)
 
     def set(self, cache_key: str, response: ChatResponse) -> None:
+        """Store or replace a cached response."""
         with self._lock, sqlite3.connect(self.path) as connection:
             connection.execute(
                 """
@@ -50,10 +57,12 @@ class ResponseCache:
             )
 
     def clear(self) -> None:
+        """Remove all cached responses."""
         with self._lock, sqlite3.connect(self.path) as connection:
             connection.execute("DELETE FROM response_cache")
 
     def _init_db(self) -> None:
+        """Create the cache table if it does not exist."""
         with sqlite3.connect(self.path) as connection:
             connection.execute(
                 """
@@ -67,6 +76,7 @@ class ResponseCache:
 
 
 def document_fingerprint(documents: list[DocumentMetadata]) -> str:
+    """Hash the indexed document list so cache keys change with documents."""
     payload = [
         {
             "document_id": document.document_id,
@@ -86,6 +96,7 @@ def build_cache_key(
     document_fingerprint_value: str,
     settings_fingerprint: dict[str, Any],
 ) -> str:
+    """Build a stable cache key from question, documents, and settings."""
     normalized_question = " ".join(request.question.lower().split())
     payload = {
         "question": normalized_question,
@@ -98,5 +109,6 @@ def build_cache_key(
 
 
 def _hash_json(payload: Any) -> str:
+    """Hash a JSON-serializable payload deterministically."""
     encoded = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()

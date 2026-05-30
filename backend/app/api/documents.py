@@ -1,3 +1,5 @@
+"""Document-list endpoint for indexed manual metadata."""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -13,4 +15,5 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 def list_documents(
     rag_service: Annotated[RAGService, Depends(get_rag_service)],
 ) -> list[DocumentMetadata]:
+    """Return metadata for all documents currently indexed by the backend."""
     return rag_service.list_documents()

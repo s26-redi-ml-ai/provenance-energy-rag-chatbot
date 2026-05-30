@@ -1,13 +1,17 @@
+"""Integration-style tests for the public FastAPI endpoints."""
+
 from io import BytesIO
 
 
 def test_energy_endpoint(client):
+    """Verify the project health endpoint responds successfully."""
     response = client.get("/energy")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
 def test_upload_txt_document_and_chat_with_citation(client):
+    """Verify upload, indexing, chat, and citations."""
     manual = (
         "Fault Codes\n\n"
         "Fault code 07: Overload timeout. Recommended action: reduce the connected load, "
@@ -40,6 +44,7 @@ def test_upload_txt_document_and_chat_with_citation(client):
 
 
 def test_upload_rejects_unsupported_file_type(client):
+    """Verify disallowed file extensions are rejected."""
     response = client.post(
         "/documents/upload",
         files={"file": ("manual.exe", b"do not index me", "application/octet-stream")},
@@ -49,6 +54,7 @@ def test_upload_rejects_unsupported_file_type(client):
 
 
 def test_upload_rejects_empty_document(client):
+    """Verify empty uploads fail with a useful error."""
     response = client.post(
         "/documents/upload",
         files={"file": ("empty.txt", b"   ", "text/plain")},
@@ -58,6 +64,7 @@ def test_upload_rejects_empty_document(client):
 
 
 def test_upload_handles_corrupted_pdf(client):
+    """Verify corrupted PDF uploads fail safely."""
     response = client.post(
         "/documents/upload",
         files={"file": ("broken.pdf", BytesIO(b"%PDF-1.4 broken"), "application/pdf")},
@@ -66,6 +73,7 @@ def test_upload_handles_corrupted_pdf(client):
 
 
 def test_chat_refuses_when_no_documents_are_indexed(client):
+    """Verify document mode refuses without evidence."""
     response = client.post(
         "/chat",
         json={"question": "What is the Wi-Fi password?", "mode": "document"},
@@ -78,6 +86,7 @@ def test_chat_refuses_when_no_documents_are_indexed(client):
 
 
 def test_general_mode_is_disabled_by_default(client):
+    """Verify general mode stays disabled by default."""
     response = client.post(
         "/chat",
         json={"question": "Explain inverter overloads generally.", "mode": "general"},
@@ -89,6 +98,7 @@ def test_general_mode_is_disabled_by_default(client):
 
 
 def test_fault_code_lookup_returns_exact_matches(client):
+    """Verify exact fault-code lookup finds indexed evidence."""
     manual = (
         "Fault Codes\n\n"
         "Fault code 07: Overload timeout. Recommended action: reduce the connected load, "

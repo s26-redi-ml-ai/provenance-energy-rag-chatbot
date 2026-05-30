@@ -1,3 +1,5 @@
+"""Prompt builders for grounded and general-knowledge answer modes."""
+
 from app.models.schemas import AnswerMode
 from app.rag.types import RetrievedChunk
 
@@ -11,6 +13,7 @@ instructions and qualified technician procedures."""
 
 
 def build_grounded_prompt(question: str, retrieved: list[RetrievedChunk]) -> str:
+    """Build the strict document-grounded prompt for the LLM."""
     context = "\n\n".join(
         _format_context_block(index=index, item=item)
         for index, item in enumerate(retrieved, start=1)
@@ -28,6 +31,7 @@ Every factual claim must be supported by a citation."""
 
 
 def build_general_prompt(question: str, mode: AnswerMode) -> str:
+    """Build a prompt for explicitly enabled general mode."""
     return f"""General knowledge mode is enabled for mode={mode}.
 Clearly state that the answer is not directly grounded in uploaded documents.
 Do not invent document citations.
@@ -37,6 +41,7 @@ Question:
 
 
 def _format_context_block(index: int, item: RetrievedChunk) -> str:
+    """Format one retrieved chunk as a numbered source block."""
     chunk = item.chunk
     page = chunk.page if chunk.page is not None else "unknown"
     section = chunk.section or "unknown"

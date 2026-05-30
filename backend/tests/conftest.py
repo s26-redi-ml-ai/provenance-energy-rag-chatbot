@@ -1,3 +1,5 @@
+"""Shared pytest fixtures for isolated backend tests."""
+
 import importlib
 
 import pytest
@@ -6,6 +8,7 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch) -> TestClient:
+    """Create a FastAPI test client with isolated in-memory RAG settings."""
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("VECTOR_STORE_PROVIDER", "memory")
     monkeypatch.setenv("EMBEDDING_PROVIDER", "hash")

@@ -1,3 +1,5 @@
+"""Text normalization and snippet helpers for extracted manual text."""
+
 import re
 
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
@@ -17,6 +19,7 @@ def clean_text(text: str) -> str:
 
 
 def make_snippet(text: str, max_chars: int = 420) -> str:
+    """Create a short one-line evidence snippet for source cards."""
     compact = MULTIPLE_SPACES.sub(" ", text.replace("\n", " ")).strip()
     if len(compact) <= max_chars:
         return compact
@@ -24,6 +27,7 @@ def make_snippet(text: str, max_chars: int = 420) -> str:
 
 
 def strip_markdown(text: str) -> str:
+    """Remove common Markdown syntax before indexing text."""
     text = re.sub(r"```.*?```", " ", text, flags=re.DOTALL)
     text = re.sub(r"`([^`]+)`", r"\1", text)
     text = re.sub(r"!\[[^\]]*\]\([^)]+\)", " ", text)

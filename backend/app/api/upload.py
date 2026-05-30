@@ -1,3 +1,5 @@
+"""Document upload endpoint and file safety validation."""
+
 import re
 import uuid
 from pathlib import Path
@@ -20,6 +22,7 @@ async def upload_document(
     settings: Annotated[Settings, Depends(get_settings)],
     rag_service: Annotated[RAGService, Depends(get_rag_service)],
 ) -> UploadResponse:
+    """Validate, save, and index one uploaded technical document."""
     original_name = Path(file.filename or "").name
     safe_name = _sanitize_filename(original_name)
     extension = Path(safe_name).suffix.lower()
@@ -31,6 +34,7 @@ async def upload_document(
             detail=f"Unsupported file type. Allowed types: {allowed_types}",
         )
 
+    # Read the upload once, then validate size and emptiness before indexing.
     content = await file.read()
     if len(content) > settings.max_upload_size_bytes:
         raise HTTPException(
@@ -49,6 +53,7 @@ async def upload_document(
     saved_path.write_bytes(content)
 
     try:
+        # The RAG service owns extraction, chunking, embeddings, and storage.
         return rag_service.index_file(document_id=document_id, filename=safe_name, path=saved_path)
     except DocumentLoadingError as exc:
         saved_path.unlink(missing_ok=True)
@@ -62,6 +67,7 @@ async def upload_document(
 
 
 def _sanitize_filename(filename: str) -> str:
+    """Convert an uploaded filename into a safe local filename."""
     filename = filename.strip().replace("\\", "_").replace("/", "_")
     filename = re.sub(r"[^A-Za-z0-9._ -]", "_", filename)
     filename = re.sub(r"\s+", "_", filename)

@@ -1,3 +1,5 @@
+"""Streamlit frontend for upload, chat, citations, and fault-code lookup."""
+
 from __future__ import annotations
 
 import os
@@ -378,6 +380,8 @@ def get_confidence_class(confidence: str) -> str:
 
 # ── APP STATE INITIALIZATION ──────────────────────────────────────────────────
 
+# Streamlit reruns the script after every interaction, so persistent UI state
+# lives in st.session_state instead of normal local variables.
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {

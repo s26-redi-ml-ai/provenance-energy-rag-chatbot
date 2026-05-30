@@ -1,3 +1,5 @@
+"""LLM answer generation providers and offline mock generation."""
+
 import re
 from abc import ABC, abstractmethod
 
@@ -11,8 +13,11 @@ class GenerationError(RuntimeError):
 
 
 class AnswerGenerator(ABC):
+    """Interface implemented by all answer generators."""
+
     @abstractmethod
     def generate(self, prompt: str) -> str:
+        """Generate an answer from a fully built prompt."""
         raise NotImplementedError
 
 
@@ -20,6 +25,7 @@ class MockGenerator(AnswerGenerator):
     """Offline generator used for tests and demos without API keys."""
 
     def generate(self, prompt: str) -> str:
+        """Create a deterministic answer for tests and offline demos."""
         if "General knowledge mode is enabled" in prompt:
             question = _extract_after(prompt, "Question:").strip()
             return (
@@ -44,7 +50,10 @@ class MockGenerator(AnswerGenerator):
 
 
 class OpenAICompatibleGenerator(AnswerGenerator):
+    """Generator that calls an OpenAI-compatible chat completion API."""
+
     def __init__(self, settings: Settings) -> None:
+        """Configure an OpenAI-compatible chat completion client."""
         if not settings.llm_api_key:
             raise GenerationError("LLM_API_KEY is required for OpenAI-compatible generation.")
         self.api_key = settings.llm_api_key
@@ -53,6 +62,7 @@ class OpenAICompatibleGenerator(AnswerGenerator):
         self.temperature = settings.llm_temperature
 
     def generate(self, prompt: str) -> str:
+        """Call the configured LLM and return its answer text."""
         response = httpx.post(
             f"{self.api_base}/chat/completions",
             headers={"Authorization": f"Bearer {self.api_key}"},
@@ -70,6 +80,7 @@ class OpenAICompatibleGenerator(AnswerGenerator):
 
 
 def create_generator(settings: Settings) -> AnswerGenerator:
+    """Select the answer generator from settings."""
     provider = settings.llm_provider.lower()
     if provider in {"mock", "test", "offline"}:
         return MockGenerator()
@@ -79,17 +90,20 @@ def create_generator(settings: Settings) -> AnswerGenerator:
 
 
 def _extract_source_text(prompt: str) -> str:
+    """Pull the first context text block from a grounded prompt."""
     match = re.search(r'Text:\s*\n"(.+?)"', prompt, flags=re.DOTALL)
     return match.group(1).strip() if match else ""
 
 
 def _extract_after(text: str, marker: str) -> str:
+    """Return prompt text after a marker string."""
     if marker not in text:
         return text
     return text.split(marker, maxsplit=1)[1]
 
 
 def _first_sentence(text: str) -> str:
+    """Return a concise first sentence for mock answers."""
     compact = re.sub(r"\s+", " ", text).strip()
     if not compact:
         return ""

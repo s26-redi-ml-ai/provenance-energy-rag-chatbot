@@ -1,3 +1,5 @@
+"""Unit tests for chunking, retrieval, and citation verification."""
+
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -11,6 +13,7 @@ from app.rag.verifier import validate_citations
 
 
 def test_chunker_preserves_page_metadata_and_stable_ids(tmp_path):
+    """Verify chunks keep page data and stable IDs."""
     chunks = chunk_loaded_texts(
         [LoadedText(text="Fault Codes\nFault code 07 overload timeout reduce load", page=4)],
         document_id="doc_123",
@@ -27,6 +30,7 @@ def test_chunker_preserves_page_metadata_and_stable_ids(tmp_path):
 
 
 def test_extract_exact_fault_code_terms():
+    """Verify fault-code queries produce useful exact terms."""
     terms = extract_exact_terms("What does fault code 07 / F07 mean?")
     assert "07" in terms
     assert "F07" in terms
@@ -34,6 +38,7 @@ def test_extract_exact_fault_code_terms():
 
 
 def test_in_memory_retriever_keyword_boosts_fault_codes(tmp_path):
+    """Verify exact fault-code matches bypass weak semantics."""
     settings = Settings(
         data_dir=tmp_path / "data",
         vector_store_provider="memory",
@@ -62,6 +67,7 @@ def test_in_memory_retriever_keyword_boosts_fault_codes(tmp_path):
 
 
 def test_validate_citations_removes_invented_source_ids():
+    """Verify fake citation IDs are removed."""
     answer, warnings = validate_citations("Use this step [Source 1] and this [Source 9].", 1)
     assert "[Source 1]" in answer
     assert "[Source 9]" not in answer

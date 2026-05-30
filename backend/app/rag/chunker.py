@@ -1,3 +1,5 @@
+"""Text chunking utilities that preserve document provenance metadata."""
+
 import logging
 import re
 from pathlib import Path
@@ -19,19 +21,19 @@ def chunk_loaded_texts(
     chunk_size: int,
     chunk_overlap: int,
 ) -> list[DocumentChunk]:
-    """Split extracted LoadedText documents into statistically monitored uniform chunks.
+    """Split extracted text into overlapping chunks with provenance and statistics.
 
     Args:
-        loaded_texts: List of LoadedText objects coming directly from the loader.
-        document_id: Unique identifier generated for the uploaded document.
-        filename: Original name of the processed file.
-        source_path: Local system path to the source file.
-        upload_time: ISO timestamp representing when the file was processed.
-        chunk_size: Target maximum word count for each separate chunk window.
-        chunk_overlap: Overlapping word boundary count between adjacent chunks.
+        loaded_texts: Text blocks produced by the document loader.
+        document_id: Stable identifier generated for the uploaded document.
+        filename: Original uploaded filename shown in citations.
+        source_path: Local path where the uploaded source file was saved.
+        upload_time: ISO timestamp for the ingestion run.
+        chunk_size: Target maximum number of words per chunk.
+        chunk_overlap: Number of words repeated between neighboring chunks.
 
     Returns:
-        A list of structurally verified and mathematically tracked DocumentChunks.
+        Searchable DocumentChunk objects with page, section, and statistical metadata.
     """
     if chunk_size <= 0:
         msg = f"Invalid chunk_size config ({chunk_size}). Must be a positive integer."
@@ -60,10 +62,10 @@ def chunk_loaded_texts(
 
             chunk_id = f"{document_id}_{page_part}_c{global_chunk_index}"
             raw_text = " ".join(window).strip()
-            w_count = len(window)
-            c_count = len(raw_text)
-            unique_words = {w.lower() for w in window}
-            lexical_density = round(len(unique_words) / w_count, 3) if w_count > 0 else 0.0
+            word_count = len(window)
+            char_count = len(raw_text)
+            unique_words = {word.lower() for word in window}
+            lexical_density = round(len(unique_words) / word_count, 3) if word_count > 0 else 0.0
 
             chunks.append(
                 DocumentChunk(
@@ -76,8 +78,8 @@ def chunk_loaded_texts(
                     source_path=str(source_path),
                     upload_time=upload_time,
                     metadata={
-                        "stat_word_count": w_count,
-                        "stat_char_count": c_count,
+                        "stat_word_count": word_count,
+                        "stat_char_count": char_count,
                         "stat_lexical_density": lexical_density,
                         "stat_chunk_index": global_chunk_index,
                     },
@@ -91,7 +93,7 @@ def chunk_loaded_texts(
 
 
 def _detect_section(text: str) -> str | None:
-    """Scan the initial lines of the text block to infer structural heading metadata."""
+    """Infer a section heading from early text lines for chunk metadata."""
     for raw_line in text.splitlines()[:12]:
         line = raw_line.strip()
         if 5 <= len(line) <= 90 and HEADING_RE.match(line):

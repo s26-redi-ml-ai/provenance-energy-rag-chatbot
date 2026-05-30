@@ -1,3 +1,5 @@
+"""Pydantic schemas that define backend API contracts."""
+
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -7,6 +9,8 @@ ConfidenceLevel = Literal["low", "medium", "high"]
 
 
 class SourceReference(BaseModel):
+    """Structured provenance returned with grounded answers."""
+
     source_id: str
     document_id: str
     filename: str
@@ -19,6 +23,8 @@ class SourceReference(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    """Input payload for the chat endpoint."""
+
     question: str = Field(..., min_length=2, max_length=4000)
     top_k: int = Field(default=5, ge=1, le=12)
     conversation_id: str | None = None
@@ -26,6 +32,8 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
+    """Output payload from the chat endpoint."""
+
     answer: str
     grounded: bool
     confidence: ConfidenceLevel
@@ -35,6 +43,8 @@ class ChatResponse(BaseModel):
 
 
 class DocumentMetadata(BaseModel):
+    """Stored metadata about an indexed document."""
+
     document_id: str
     filename: str
     upload_time: str
@@ -44,6 +54,8 @@ class DocumentMetadata(BaseModel):
 
 
 class UploadResponse(BaseModel):
+    """Summary returned after a document is indexed."""
+
     document_id: str
     filename: str
     chunks_created: int
@@ -51,6 +63,8 @@ class UploadResponse(BaseModel):
 
 
 class ChunkMetadata(BaseModel):
+    """Metadata shape used to describe an indexed text chunk."""
+
     chunk_id: str
     document_id: str
     filename: str
@@ -61,11 +75,15 @@ class ChunkMetadata(BaseModel):
 
 
 class FaultCodeLookupRequest(BaseModel):
+    """Input payload for exact fault-code lookup."""
+
     code: str = Field(..., min_length=1, max_length=80)
     top_k: int = Field(default=10, ge=1, le=25)
 
 
 class FaultCodeMatch(BaseModel):
+    """One exact fault-code match returned to the frontend."""
+
     source_id: str
     document_id: str
     filename: str
@@ -79,6 +97,8 @@ class FaultCodeMatch(BaseModel):
 
 
 class FaultCodeLookupResponse(BaseModel):
+    """Output payload for exact fault-code lookup."""
+
     code: str
     normalized_terms: list[str] = Field(default_factory=list)
     matches: list[FaultCodeMatch] = Field(default_factory=list)
@@ -86,4 +106,6 @@ class FaultCodeLookupResponse(BaseModel):
 
 
 class ErrorResponse(BaseModel):
+    """Simple error response shape for documented failures."""
+
     detail: str

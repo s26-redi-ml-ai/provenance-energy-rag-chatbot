@@ -1,3 +1,5 @@
+"""Document text extraction for PDF, DOCX, TXT, Markdown, and OCR fallback."""
+
 import logging
 from pathlib import Path
 
