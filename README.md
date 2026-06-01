@@ -4,8 +4,6 @@ A document-grounded Retrieval-Augmented Generation (RAG) chatbot for technical s
 
 The system lets users upload technical documents, ask engineering support questions, retrieve the most relevant passages, generate grounded answers, and inspect the exact source evidence behind each response.
 
-This version uses a **FastAPI backend** and a simpler **Streamlit frontend** so a beginner-friendly student team can build, test, demo, and extend the project without the learning curve of React.
-
 ## Table Of Contents
 
 - [Project Overview](#project-overview)
