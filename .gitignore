@@ -75,3 +75,4 @@ Thumbs.db
 *.crt
 *.p12
 *.p8
+*slack
