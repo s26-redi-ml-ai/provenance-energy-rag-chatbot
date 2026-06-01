@@ -75,4 +75,5 @@ Thumbs.db
 *.crt
 *.p12
 *.p8
-/docs/slack*
+
+docs/slack_tracker.md
