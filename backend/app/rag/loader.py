@@ -1,3 +1,4 @@
+import csv
 import logging
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from app.utils.text_cleaning import clean_text, strip_markdown
 
 logger = logging.getLogger(__name__)
 
-_SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".markdown"}
+_SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".markdown", ".csv"}
 
 
 class DocumentLoadingError(ValueError):
@@ -49,6 +50,8 @@ def load_document(path: Path, filename: str) -> list[LoadedText]:
             result = _load_docx(path)
         elif suffix == ".txt":
             result = _load_plain_text(path)
+        elif suffix == ".csv":
+            result = _load_csv(path)
         else:  # .md / .markdown
             result = _load_markdown(path)
     except DocumentLoadingError:
@@ -64,11 +67,7 @@ def load_document(path: Path, filename: str) -> list[LoadedText]:
 
 
 def _load_pdf(path: Path) -> list[LoadedText]:
-    """Extract text from a PDF, preserving page numbers.
-
-    Uses an adaptive approach: extracts digital text layers first,
-    and automatically falls back to OCR if the document is scanned.
-    """
+    """Extract text from a PDF, preserving page numbers."""
     try:
         reader = PdfReader(str(path))
     except Exception as exc:  # noqa: BLE001
@@ -106,10 +105,7 @@ def _load_pdf(path: Path) -> list[LoadedText]:
 
 
 def _execute_pdf_ocr(path: Path) -> list[LoadedText]:
-    """Convert PDF pages into high-resolution images and run Tesseract OCR.
-
-    Uses soft imports to maintain environment stability across team machines.
-    """
+    """Convert PDF pages into high-resolution images and run Tesseract OCR."""
     try:
         import pytesseract
         from pdf2image import convert_from_path
@@ -209,3 +205,40 @@ def _load_markdown(path: Path) -> list[LoadedText]:
             "The uploaded Markdown file is empty or contains no readable content."
         )
     return [LoadedText(text=text, page=None)]
+
+
+def _load_csv(path: Path) -> list[LoadedText]:
+    """Extract and structure data from a CSV file, treating rows as individual semantic texts."""
+    loaded_rows: list[LoadedText] = []
+
+    try:
+        with open(path, encoding="utf-8-sig", errors="ignore") as f:
+            reader = csv.DictReader(f)
+
+            if not reader.fieldnames:
+                raise DocumentLoadingError("The uploaded CSV file is missing column headers.")
+
+            for index, row in enumerate(reader, start=1):
+                row_parts = []
+                for key, value in row.items():
+                    if key and value:
+                        row_parts.append(f"{key.strip()}: {value.strip()}")
+
+                if not row_parts:
+                    continue
+
+                row_text = clean_text(", ".join(row_parts))
+
+                if row_text:
+                    loaded_rows.append(LoadedText(text=row_text, page=None, section=f"Row {index}"))
+
+    except DocumentLoadingError:
+        raise
+    except Exception as exc:
+        raise DocumentLoadingError(f"Failed to parse CSV structured data: {str(exc)}") from exc
+
+    if not loaded_rows:
+        raise DocumentLoadingError("The uploaded CSV file contains no readable data rows.")
+
+    logger.debug("Extracted %d structured data row(s) from CSV.", len(loaded_rows))
+    return loaded_rows

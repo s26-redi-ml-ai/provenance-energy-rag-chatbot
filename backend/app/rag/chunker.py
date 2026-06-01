@@ -6,7 +6,7 @@ from app.rag.types import DocumentChunk, LoadedText
 
 logger = logging.getLogger(__name__)
 
-HEADING_RE = re.compile(r"^(?:[A-Z][A-Z0-9 /&():-]{4,}|[0-9]+(?:\.[0-9]+)*\s+.+)$")
+_HEADING_RE = re.compile(r"^(?:[A-Z][A-Z0-9 /&():-]{4,}|[0-9]+(?:\.[0-9]+)*\s+.+)$")
 
 
 def chunk_loaded_texts(
@@ -19,28 +19,17 @@ def chunk_loaded_texts(
     chunk_size: int,
     chunk_overlap: int,
 ) -> list[DocumentChunk]:
-    """Split extracted LoadedText documents into statistically monitored uniform chunks.
+    """Split technical documents into overlapping windows optimized for troubleshooting manuals."""
 
-    Args:
-        loaded_texts: List of LoadedText objects coming directly from the loader.
-        document_id: Unique identifier generated for the uploaded document.
-        filename: Original name of the processed file.
-        source_path: Local system path to the source file.
-        upload_time: ISO timestamp representing when the file was processed.
-        chunk_size: Target maximum word count for each separate chunk window.
-        chunk_overlap: Overlapping word boundary count between adjacent chunks.
-
-    Returns:
-        A list of structurally verified and mathematically tracked DocumentChunks.
-    """
     if chunk_size <= 0:
-        msg = f"Invalid chunk_size config ({chunk_size}). Must be a positive integer."
-        raise ValueError(msg)
+        raise ValueError(f"chunk_size must be a positive integer, got {chunk_size}.")
+    if chunk_overlap < 0 or chunk_overlap >= chunk_size:
+        raise ValueError(f"chunk_overlap must be >= 0 and < chunk_size, got {chunk_overlap}.")
 
     chunks: list[DocumentChunk] = []
     global_chunk_index = 0
 
-    logger.info("Starting chunking pipeline for document: %s", filename)
+    logger.info("Starting error-aware chunking pipeline for: %s", filename)
 
     for item in loaded_texts:
         words = item.text.split()
@@ -48,7 +37,7 @@ def chunk_loaded_texts(
             continue
 
         section = item.section or _detect_section(item.text)
-        step = max(1, chunk_size - min(chunk_overlap, chunk_size - 1))
+        step = max(1, chunk_size - chunk_overlap)
 
         for start in range(0, len(words), step):
             window = words[start : start + chunk_size]
@@ -57,8 +46,8 @@ def chunk_loaded_texts(
 
             global_chunk_index += 1
             page_part = f"p{item.page}" if item.page is not None else "pna"
-
             chunk_id = f"{document_id}_{page_part}_c{global_chunk_index}"
+
             raw_text = " ".join(window).strip()
             w_count = len(window)
             c_count = len(raw_text)
@@ -76,17 +65,18 @@ def chunk_loaded_texts(
                     source_path=str(source_path),
                     upload_time=upload_time,
                     metadata={
-                        "stat_word_count": w_count,
-                        "stat_char_count": c_count,
-                        "stat_lexical_density": lexical_density,
-                        "stat_chunk_index": global_chunk_index,
+                        "word_count": w_count,
+                        "char_count": c_count,
+                        "lexical_density": lexical_density,
+                        "chunk_index": global_chunk_index,
                     },
                 )
             )
+
             if start + chunk_size >= len(words):
                 break
 
-    logger.info("Successfully generated %d chunks for document: %s", len(chunks), filename)
+    logger.info("Successfully generated %d optimized chunks for: %s", len(chunks), filename)
     return chunks
 
 
@@ -94,6 +84,6 @@ def _detect_section(text: str) -> str | None:
     """Scan the initial lines of the text block to infer structural heading metadata."""
     for raw_line in text.splitlines()[:12]:
         line = raw_line.strip()
-        if 5 <= len(line) <= 90 and HEADING_RE.match(line):
+        if 5 <= len(line) <= 90 and _HEADING_RE.match(line):
             return line
     return None

@@ -190,7 +190,7 @@ class RAGService:
                 warnings=[str(exc)],
             )
 
-        answer, citation_warnings = validate_citations(answer, len(sources))
+        answer, citation_warnings = validate_citations(answer, retrieved)
         grounded = not is_refusal(answer)
         warnings = citation_warnings
         if grounded:
@@ -304,6 +304,8 @@ def _fault_lookup_terms(code: str) -> list[str]:
                 padded,
                 f"F{padded}",
                 f"E{padded}",
+                f"Row {numeric}",
+                f"Row {padded}",
                 f"Fault {padded}",
                 f"Fault code {padded}",
                 f"Error {padded}",
@@ -336,7 +338,7 @@ def _fault_lookup_score(matched_terms: list[str]) -> float:
     has_descriptive_term = any(
         keyword in term.lower()
         for term in matched_terms
-        for keyword in ("fault", "error", "alarm", "warning")
+        for keyword in ("fault", "error", "alarm", "warning", "row")
     )
     score = 0.93 + min(len(matched_terms), 4) * 0.01
     if has_descriptive_term:
