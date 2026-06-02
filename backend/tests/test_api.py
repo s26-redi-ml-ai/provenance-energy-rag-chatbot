@@ -12,26 +12,20 @@ def test_energy_endpoint(client):
     assert response.json() == {"status": "ok"}
 
 
-def test_upload_txt_document_and_chat_with_citation(client):
+def test_upload_txt_document_and_chat_with_citation(
+    client,
+    fault_manual_text,
+    upload_text_document,
+):
     """Verify upload, indexing, chat, and citations."""
-    manual = (
-        "Fault Codes\n\n"
-        "Fault code 07: Overload timeout. Recommended action: reduce the connected load, "
-        "restart the inverter, and check whether the fault clears.\n\n"
-        "Maintenance: inspect terminals only after isolating the system."
-    )
-    upload = client.post(
-        "/documents/upload",
-        files={"file": ("voltronic_manual.txt", manual.encode("utf-8"), "text/plain")},
-    )
-    assert upload.status_code == 201
-    payload = upload.json()
-    assert payload["status"] == "indexed"
-    assert payload["chunks_created"] >= 1
+    upload = upload_text_document("voltronic_manual.txt", fault_manual_text)
+    assert upload["status"] == "indexed"
+    assert upload["chunks_created"] >= 1
 
     documents = client.get("/documents")
     assert documents.status_code == 200
-    assert documents.json()[0]["filename"] == "voltronic_manual.txt"
+    filenames = {document["filename"] for document in documents.json()}
+    assert "voltronic_manual.txt" in filenames
 
     chat = client.post(
         "/chat",
@@ -42,7 +36,14 @@ def test_upload_txt_document_and_chat_with_citation(client):
     assert answer["grounded"] is True
     assert "[Source 1]" in answer["answer"]
     assert answer["sources"][0]["filename"] == "voltronic_manual.txt"
-    assert answer["sources"][0]["chunk_id"].startswith(payload["document_id"])
+    assert answer["sources"][0]["chunk_id"].startswith(upload["document_id"])
+
+
+def test_each_client_starts_with_no_indexed_documents(client):
+    """Verify the autouse fixture gives every API test a clean document registry."""
+    response = client.get("/documents")
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 def test_upload_rejects_unsupported_file_type(client):
@@ -53,6 +54,12 @@ def test_upload_rejects_unsupported_file_type(client):
     )
     assert response.status_code == 400
     assert "Unsupported file type" in response.json()["detail"]
+
+
+def test_upload_rejects_missing_file(client):
+    """Verify upload validation rejects requests without the required file field."""
+    response = client.post("/documents/upload")
+    assert response.status_code == 422
 
 
 def test_upload_rejects_empty_document(client):
@@ -74,6 +81,19 @@ def test_upload_handles_corrupted_pdf(client):
     assert response.status_code == 400
 
 
+def test_upload_rejects_oversized_file(client):
+    """Verify files above the configured size limit are rejected with 413."""
+    twenty_six_mb_data = b"X" * (26 * 1024 * 1024)
+
+    response = client.post(
+        "/documents/upload",
+        files={"file": ("oversized_solar_manual.pdf", twenty_six_mb_data, "application/pdf")},
+    )
+
+    assert response.status_code == 413
+    assert "larger than" in response.json()["detail"]
+
+
 def test_chat_refuses_when_no_documents_are_indexed(client):
     """Verify document mode refuses without evidence."""
     response = client.post(
@@ -85,6 +105,22 @@ def test_chat_refuses_when_no_documents_are_indexed(client):
     assert payload["grounded"] is False
     assert "could not find enough information" in payload["answer"].lower()
     assert payload["sources"] == []
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"question": "", "mode": "document"},
+        {"question": "What does F07 mean?", "mode": "unsupported"},
+        {"question": "What does F07 mean?", "top_k": 0, "mode": "document"},
+        {"question": "What does F07 mean?", "top_k": 51, "mode": "document"},
+    ],
+)
+def test_chat_rejects_missing_or_invalid_input(client, payload):
+    """Verify chat request validation rejects missing fields and invalid values."""
+    response = client.post("/chat", json=payload)
+    assert response.status_code == 422
 
 
 def test_general_mode_is_disabled_by_default(client):
@@ -99,19 +135,13 @@ def test_general_mode_is_disabled_by_default(client):
     assert "ALLOW_GENERAL_KNOWLEDGE is false." in payload["warnings"]
 
 
-def test_fault_code_lookup_returns_exact_matches(client):
+def test_fault_code_lookup_returns_exact_matches(
+    client,
+    fault_manual_text,
+    upload_text_document,
+):
     """Verify exact fault-code lookup finds indexed evidence."""
-    manual = (
-        "Fault Codes\n\n"
-        "Fault code 07: Overload timeout. Recommended action: reduce the connected load, "
-        "restart the inverter, and check whether the fault clears.\n\n"
-        "Fault code F12: DC bus over-voltage. Stop operation and inspect the PV input."
-    )
-    upload = client.post(
-        "/documents/upload",
-        files={"file": ("fault_lookup_manual.txt", manual.encode("utf-8"), "text/plain")},
-    )
-    assert upload.status_code == 201
+    upload_text_document("fault_lookup_manual.txt", fault_manual_text)
 
     response = client.post("/fault-codes/lookup", json={"code": "07", "top_k": 5})
     assert response.status_code == 200
@@ -124,48 +154,50 @@ def test_fault_code_lookup_returns_exact_matches(client):
     assert "Overload timeout" in payload["matches"][0]["full_text"]
 
 
-# New Test 1: TM-1 - Uploading an Oversized File (a file larger than 25MB is rejected)
-def test_upload_rejects_oversized_file(client):
-    twenty_six_mb_data = b"X" * (26 * 1024 * 1024)
+def test_fault_code_lookup_returns_no_matches_for_absent_code(
+    client,
+    fault_manual_text,
+    upload_text_document,
+):
+    """Verify absent codes return no matches even when other fault codes are indexed."""
+    upload_text_document("fault_lookup_manual.txt", fault_manual_text)
 
-    response = client.post(
-        "/documents/upload",
-        files={"file": ("oversized_solar_manual.pdf", twenty_six_mb_data, "application/pdf")},
-    )
-
-    # 413 (Payload Too Large)
-    # 400 (Bad Request)
-    assert response.status_code in [413, 400]
-
-
-# New Test 2: TM-1 - Fault code lookup for a non-existent code (returns empty matches)
-def test_fault_code_lookup_no_matches(client):
     response = client.post("/fault-codes/lookup", json={"code": "999", "top_k": 5})
 
     assert response.status_code == 200
     payload = response.json()
-    assert "matches" in payload
     assert payload["matches"] == []
+    assert "No indexed chunk contained an exact matching fault-code term." in payload["warnings"]
 
 
-# New Test 3: TM-1 - Security & Robustness test.
 @pytest.mark.parametrize(
-    "malicious_input",
+    "payload",
     [
-        "@#$!%^&*()_+{}[]|\\:;\"'<>,.?/~`",  # 1. Special characters
-        "' OR '1'='1 --",  # 2. SQL Injection
-        "<script>alert('hacked')</script>",  # 3. XSS Payload
-        "F" * 1000,  # 4. Long string (Buffer overflow check)
+        {},
+        {"code": "", "top_k": 5},
+        {"code": "07", "top_k": 0},
+        {"code": "07", "top_k": 26},
+        {"code": "F" * 81, "top_k": 5},
     ],
 )
-def test_fault_code_lookup_security_sanitization(client, malicious_input):
+def test_fault_code_lookup_rejects_missing_or_invalid_input(client, payload):
+    """Verify fault-code lookup validates missing fields, length, and top_k range."""
+    response = client.post("/fault-codes/lookup", json=payload)
+    assert response.status_code == 422
 
-    response = client.post("/fault-codes/lookup", json={"code": malicious_input, "top_k": 5})
 
-    assert response.status_code in [200, 422]
+@pytest.mark.parametrize(
+    "suspicious_input",
+    [
+        "@#$!%^&*()_+{}[]|\\:;\"'<>,.?/~`",
+        "' OR '1'='1 --",
+        "<script>alert('hacked')</script>",
+    ],
+)
+def test_fault_code_lookup_handles_suspicious_input_without_matches(client, suspicious_input):
+    """Verify suspicious but valid-length lookup text does not crash or invent matches."""
+    response = client.post("/fault-codes/lookup", json={"code": suspicious_input, "top_k": 5})
 
-    if response.status_code == 200:
-        payload = response.json()
-        assert "matches" in payload
-        assert isinstance(payload["matches"], list)
-        assert len(payload["matches"]) == 0
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["matches"] == []
