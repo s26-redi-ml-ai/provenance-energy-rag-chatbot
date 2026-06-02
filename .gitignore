@@ -9,7 +9,8 @@ frontend/.streamlit/secrets.toml
 venv/
 env/
 
-# Python caches and build artifacts
+# Python caches and build 
+
 __pycache__/
 *.py[cod]
 *$py.class

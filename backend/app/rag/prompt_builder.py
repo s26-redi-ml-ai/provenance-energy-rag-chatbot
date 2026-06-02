@@ -1,19 +1,19 @@
-"""Prompt builders for grounded and general-knowledge answer modes."""
-
 from app.models.schemas import AnswerMode
 from app.rag.types import RetrievedChunk
 
-SYSTEM_PROMPT = """You are a grounded technical-support RAG assistant.
-Answer using only the provided context unless general knowledge mode is explicitly enabled.
-If context is insufficient, say that you cannot answer from the uploaded documents.
-Cite sources with the exact source IDs provided, such as [Source 1].
-Do not invent facts, fault codes, troubleshooting steps, metadata, or citations.
-For high-risk electrical troubleshooting, remind the user to follow manufacturer safety
-instructions and qualified technician procedures."""
+SYSTEM_PROMPT = (
+    "You are a grounded technical-support RAG assistant for solar energy systems and inverters. "
+    "Answer the user's question using ONLY the provided text blocks in the retrieved context. "
+    "Every factual claim must be followed by its exact citation label in square brackets. "
+    "Do NOT use generic citations like '[Source 1]'. "
+    "Use the literal 'Citation Label' provided in each block. "
+    "Do not invent facts, fault codes, or citations not explicitly present in the context. "
+    "Always advise the technician to follow manufacturer safety instructions "
+    "and qualified procedures."
+)
 
 
 def build_grounded_prompt(question: str, retrieved: list[RetrievedChunk]) -> str:
-    """Build the strict document-grounded prompt for the LLM."""
     context = "\n\n".join(
         _format_context_block(index=index, item=item)
         for index, item in enumerate(retrieved, start=1)
@@ -31,7 +31,6 @@ Every factual claim must be supported by a citation."""
 
 
 def build_general_prompt(question: str, mode: AnswerMode) -> str:
-    """Build a prompt for explicitly enabled general mode."""
     return f"""General knowledge mode is enabled for mode={mode}.
 Clearly state that the answer is not directly grounded in uploaded documents.
 Do not invent document citations.
@@ -41,15 +40,28 @@ Question:
 
 
 def _format_context_block(index: int, item: RetrievedChunk) -> str:
-    """Format one retrieved chunk as a numbered source block."""
     chunk = item.chunk
     page = chunk.page if chunk.page is not None else "unknown"
     section = chunk.section or "unknown"
-    return f"""[Source {index}]
-Document: {chunk.filename}
-Page: {page}
-Section: {section}
-Chunk ID: {chunk.chunk_id}
-Relevance score: {item.relevance_score:.2f}
-Text:
-\"{chunk.text}\""""
+
+    tilt = getattr(item, "suggested_tilt_angle", None)
+    gain = getattr(item, "estimated_irradiation_gain", None)
+    confidence = getattr(item, "confidence_level", "Medium")
+    citation_label = getattr(chunk, "citation_label", f"{chunk.filename}, p. {page}")
+
+    tilt_display = f"{tilt}°" if tilt is not None else "N/A"
+    gain_display = f"{gain}%" if gain is not None else "N/A"
+
+    return (
+        f"--- Retrieved Block {index} ---\n"
+        f"Citation Label to Use: {citation_label}\n"
+        f"Document Name: {chunk.filename}\n"
+        f"Page: {page}\n"
+        f"Section: {section}\n"
+        f"[Solar Site Analytics]\n"
+        f"- Suggested Panel Tilt Angle: {tilt_display}\n"
+        f"- Estimated Solar Irradiation Gain: {gain_display}\n"
+        f"- Document Confidence Level: {confidence}\n\n"
+        f'Text:\n"{chunk.text}"\n'
+        "----------------------------"
+    )

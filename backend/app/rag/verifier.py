@@ -1,33 +1,39 @@
 """Answer verification helpers for refusal and citation integrity."""
 
 import re
+from typing import Any
 
-CITATION_RE = re.compile(r"\[Source\s+(\d+)\]")
+CITATION_RE = re.compile(r"\[([^\]]+)\]")
 REFUSAL = "I could not find enough information in the uploaded documents to answer this reliably."
 
 
 def validate_citations(answer: str, source_count: int) -> tuple[str, list[str]]:
-    """Remove unsupported citations and ensure grounded answers cite evidence."""
     warnings: list[str] = []
-    allowed = {str(index) for index in range(1, source_count + 1)}
+
+    if isinstance(retrieved_chunks, int):
+        allowed_sources = {str(i) for i in range(1, retrieved_chunks + 1)}
 
     def replace(match: re.Match[str]) -> str:
-        """Keep valid source IDs and strip citations that were not retrieved."""
         source_number = match.group(1)
         if source_number in allowed:
             return match.group(0)
-        warnings.append(f"Removed unsupported citation [Source {source_number}].")
+        warnings.append(f"Removed hallucinated or unsupported citation [{full_citation}].")
         return ""
 
-    cleaned = CITATION_RE.sub(replace, answer).strip()
-
-    if source_count > 0 and not CITATION_RE.search(cleaned) and REFUSAL not in cleaned:
-        cleaned = f"{cleaned} [Source 1]"
-        warnings.append("Added citation to the strongest retrieved source.")
+    cleaned = CITATION_RE.sub(replace_modern, answer).strip()
+    if (
+        retrieved_chunks
+        and not CITATION_RE.search(cleaned)
+        and not is_refusal(cleaned)
+        and fallback_label
+    ):
+        cleaned = f"{cleaned} [{fallback_label}]"
+        warnings.append(
+            f"Added fallback citation to the strongest retrieved source: [{fallback_label}]."
+        )
 
     return cleaned, warnings
 
 
 def is_refusal(answer: str) -> bool:
-    """Return whether an answer is the standard insufficient-evidence refusal."""
     return REFUSAL.lower() in answer.lower()
