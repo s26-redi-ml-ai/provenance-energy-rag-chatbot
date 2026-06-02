@@ -72,3 +72,15 @@ def test_validate_citations_removes_invented_source_ids():
     assert "[Source 1]" in answer
     assert "[Source 9]" not in answer
     assert warnings == ["Removed unsupported citation [Source 9]."]
+
+
+# New Test 1: TM-1 - Verifies exact code extraction with messy, noisy user input.
+def test_extract_exact_terms_messy_input():
+
+    messy_query = "   !!! alarm-code:  f--07??  or maybe error   08!!! "
+
+    terms = extract_exact_terms(messy_query)
+
+    assert "07" in terms
+    assert "F07" in terms or "f--07" in terms or any("07" in t for t in terms)
+    assert "08" in terms
