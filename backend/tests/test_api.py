@@ -2,6 +2,8 @@
 
 from io import BytesIO
 
+import pytest
+
 
 def test_energy_endpoint(client):
     """Verify the project health endpoint responds successfully."""
@@ -120,3 +122,50 @@ def test_fault_code_lookup_returns_exact_matches(client):
     assert payload["matches"][0]["filename"] == "fault_lookup_manual.txt"
     assert "07" in payload["matches"][0]["matched_terms"]
     assert "Overload timeout" in payload["matches"][0]["full_text"]
+
+
+# New Test 1: TM-1 - Uploading an Oversized File (a file larger than 25MB is rejected)
+def test_upload_rejects_oversized_file(client):
+    twenty_six_mb_data = b"X" * (26 * 1024 * 1024)
+
+    response = client.post(
+        "/documents/upload",
+        files={"file": ("oversized_solar_manual.pdf", twenty_six_mb_data, "application/pdf")},
+    )
+
+    # 413 (Payload Too Large)
+    # 400 (Bad Request)
+    assert response.status_code in [413, 400]
+
+
+# New Test 2: TM-1 - Fault code lookup for a non-existent code (returns empty matches)
+def test_fault_code_lookup_no_matches(client):
+    response = client.post("/fault-codes/lookup", json={"code": "999", "top_k": 5})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "matches" in payload
+    assert payload["matches"] == []
+
+
+# New Test 3: TM-1 - Security & Robustness test.
+@pytest.mark.parametrize(
+    "malicious_input",
+    [
+        "@#$!%^&*()_+{}[]|\\:;\"'<>,.?/~`",  # 1. Special characters
+        "' OR '1'='1 --",  # 2. SQL Injection
+        "<script>alert('hacked')</script>",  # 3. XSS Payload
+        "F" * 1000,  # 4. Long string (Buffer overflow check)
+    ],
+)
+def test_fault_code_lookup_security_sanitization(client, malicious_input):
+
+    response = client.post("/fault-codes/lookup", json={"code": malicious_input, "top_k": 5})
+
+    assert response.status_code in [200, 422]
+
+    if response.status_code == 200:
+        payload = response.json()
+        assert "matches" in payload
+        assert isinstance(payload["matches"], list)
+        assert len(payload["matches"]) == 0
