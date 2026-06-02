@@ -37,6 +37,23 @@ def test_extract_exact_fault_code_terms():
     assert "Fault code 07" in terms
 
 
+def test_extract_exact_terms_messy_input():
+    """Verify noisy user input still produces normalized exact-code terms."""
+    messy_query = "   !!! alarm-code:  f--07??  or maybe error   08!!! "
+
+    terms = extract_exact_terms(messy_query)
+
+    assert "07" in terms
+    assert "F07" in terms
+    assert "08" in terms
+    assert "Error 08" in terms
+
+
+def test_extract_exact_terms_ignores_non_fault_questions():
+    """Verify keyword fallback does not trigger for unrelated numeric questions."""
+    assert extract_exact_terms("How many batteries are in this system? 12") == []
+
+
 def test_in_memory_retriever_keyword_boosts_fault_codes(tmp_path):
     """Verify exact fault-code matches bypass weak semantics."""
     settings = Settings(
