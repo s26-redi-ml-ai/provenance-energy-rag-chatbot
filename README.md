@@ -2,14 +2,30 @@
 
 A document-grounded Retrieval-Augmented Generation (RAG) chatbot for technical support teams working with solar and energy equipment manuals.
 
-The system lets users upload technical documents, ask engineering support questions, retrieve the most relevant passages, generate grounded answers, and inspect the exact source evidence behind each response.
+## MVP Definition
 
-This version uses a **FastAPI backend** and a simpler **Streamlit frontend** so a beginner-friendly student team can build, test, demo, and extend the project without the learning curve of React.
+The one core feature this project must have to work is:
 
-## Table Of Contents
+> A user can upload a technical manual, ask a question about it, and receive either a document-grounded answer with visible source evidence or a clear refusal when the uploaded documents do not contain enough information.
+
+Everything else supports this core feature: document upload, text extraction, chunking, embeddings, retrieval, answer generation, citations, source cards, and refusal behavior.
+
+For the MVP, the system is successful when it can:
+
+- Upload at least one PDF, DOCX, TXT, or Markdown technical document.
+- Extract and chunk the document text.
+- Store searchable chunks in a persistent vector database.
+- Let a user ask a question from the Streamlit UI.
+- Retrieve relevant chunks from indexed documents.
+- Generate an answer grounded in retrieved evidence.
+- Show source cards with filename, page where available, chunk ID, relevance score, and supporting snippet.
+- Refuse to answer when the indexed documents do not provide enough evidence.
+
+## Table of Contents
 
 - [Project Overview](#project-overview)
 - [Problem Statement](#problem-statement)
+- [Dataset](#dataset)
 - [Key Features](#key-features)
 - [Technology Stack](#technology-stack)
 - [Architecture](#architecture)
@@ -17,40 +33,42 @@ This version uses a **FastAPI backend** and a simpler **Streamlit frontend** so 
 - [Prerequisites](#prerequisites)
 - [Environment Variables](#environment-variables)
 - [Local Setup With uv](#local-setup-with-uv)
-- [Running The App](#running-the-app)
+- [Running the App](#running-the-app)
 - [API Reference](#api-reference)
-- [How The RAG Pipeline Works](#how-the-rag-pipeline-works)
-- [Grounding And Provenance](#grounding-and-provenance)
+- [How the RAG Pipeline Works](#how-the-rag-pipeline-works)
+- [Grounding and Provenance](#grounding-and-provenance)
 - [Hallucination Controls](#hallucination-controls)
 - [Fault-Code Exact Lookup](#fault-code-exact-lookup)
 - [Local Response Caching](#local-response-caching)
-- [Testing And Quality Checks](#testing-and-quality-checks)
+- [Testing and Quality Checks](#testing-and-quality-checks)
 - [Docker Usage](#docker-usage)
 - [Demo Flow](#demo-flow)
 - [Team Workflow](#team-workflow)
+- [Acceptance Criteria](#acceptance-criteria)
 - [Limitations](#limitations)
 - [Future Improvements](#future-improvements)
 - [Troubleshooting](#troubleshooting)
+- [License](#license)
 
 ## Project Overview
 
-Engineers and field technicians often need to search large inverter, battery, PV module, fan, charge controller, and maintenance manuals to find fault codes, alarm meanings, troubleshooting steps, and safety instructions.
+Engineers and field technicians often search through large inverter, battery, PV module, fan, charge controller, and maintenance manuals to find fault codes, alarm meanings, troubleshooting steps, and safety instructions.
 
 This project provides a trustworthy technical-support assistant that can:
 
 - Upload and index technical manuals.
 - Retrieve relevant document passages.
 - Answer questions using retrieved evidence.
-- Show citations and source cards.
+- Show citations and source cards for verification.
 - Refuse unsupported answers in document mode.
 - Preserve document provenance such as filename, page, section, chunk ID, relevance score, and supporting text.
 - Provide a fast exact fault-code lookup that does not call the LLM.
 
-The goal is not just to "chat with a PDF". The goal is to build a transparent document QA system that can be extended toward real-world technical support.
+The goal is not just to "chat with a PDF". The goal is to build a transparent document question-answering system that can be extended toward real-world technical support.
 
 ## Problem Statement
 
-Traditional manual search is slow and error-prone. Engineers may spend significant time looking for a fault code across large manufacturer PDFs or maintenance documents.
+Traditional manual search is slow and error-prone. Engineers may spend significant time looking for one fault code across large manufacturer PDFs or maintenance documents.
 
 A normal LLM chatbot can sound confident even when it is wrong. For technical support, that is risky. This project reduces that risk by grounding answers in uploaded documents and exposing the evidence used to answer.
 
@@ -60,10 +78,18 @@ When the indexed documents do not contain enough information, the assistant shou
 I could not find enough information in the uploaded documents to answer this reliably.
 ```
 
+## Dataset
+
+This project does not require a traditional CSV or numerical dataset for the MVP.
+
+The dataset is a document corpus: a collection of solar and energy technical documents such as inverter manuals, PV module manuals, battery manuals, fan manuals, charge controller manuals, troubleshooting guides, fault-code tables, maintenance instructions, FAQs, and technical notes.
+
+The system extracts text from these documents, splits the text into chunks, embeds the chunks, and stores them in a vector database. Each chunk keeps provenance metadata so answers can point back to the exact source evidence.
+
 ## Key Features
 
 - Streamlit web UI for document upload, chat, source cards, and fault-code lookup.
-- FastAPI backend with modular RAG pipeline.
+- FastAPI backend with a modular RAG pipeline.
 - uv-managed Python projects for both backend and frontend.
 - Upload support for PDF, DOCX, TXT, Markdown, and MD files.
 - PDF page-number preservation where text extraction supports it.
@@ -90,7 +116,8 @@ I could not find enough information in the uploaded documents to answer this rel
 - FastAPI
 - Uvicorn
 - Pydantic
-- python-dotenv / pydantic-settings
+- pydantic-settings
+- python-dotenv
 - ChromaDB
 - SentenceTransformers or hash/mock embeddings
 - pypdf
@@ -145,13 +172,13 @@ FastAPI Backend
   +-- Fault-Code Lookup API
         +-- Normalize code variants
         +-- Search exact terms in indexed chunks
-        +-- Return matching table rows without LLM call
+        +-- Return matching table rows without an LLM call
 
 Persistent Storage
   |
-  +-- data/raw              Uploaded files
-  +-- data/processed        Document registry and response cache
-  +-- data/vector_store     ChromaDB vector store
+  +-- backend/data/raw              Uploaded files
+  +-- backend/data/processed        Document registry and response cache
+  +-- backend/data/vector_store     ChromaDB vector store
 ```
 
 ## Project Structure
@@ -160,10 +187,11 @@ Persistent Storage
 rag-chatbot-streamlit/
 |
 +-- README.md                         Main project documentation.
++-- CONTRIBUTING.md                   Collaboration guidelines.
++-- LICENSE.md                        Project license.
 +-- .env.example                      Example environment variables with no real secrets.
 +-- .gitignore                        Files and folders Git should ignore.
 +-- docker-compose.yml                Optional Docker Compose setup.
-+-- project_structure.txt             Human-readable project structure notes.
 |
 +-- backend/                          FastAPI backend and RAG pipeline.
 |   +-- pyproject.toml                 uv project and backend dependencies.
@@ -199,10 +227,7 @@ rag-chatbot-streamlit/
 |   |   |   +-- verifier.py            Refusal text and citation validation.
 |   |   +-- utils/
 |   |       +-- text_cleaning.py       Text normalization and snippets.
-|   +-- data/
-|   |   +-- raw/                       Uploaded files, created at runtime.
-|   |   +-- processed/                 Registry and cache files, created at runtime.
-|   |   +-- vector_store/              Persistent ChromaDB files, created at runtime.
+|   +-- data/                         Runtime data; ignored by Git.
 |   +-- tests/
 |       +-- conftest.py                Test app fixture and test settings.
 |       +-- test_api.py                API tests.
@@ -214,7 +239,6 @@ rag-chatbot-streamlit/
 |   +-- Dockerfile                     Optional frontend Docker image.
 |   +-- README.md                      Frontend-specific notes.
 |   +-- app.py                         Streamlit UI.
-|   +-- app_orig.py                    Backup of a previous UI version.
 |   +-- .streamlit/
 |       +-- config.toml                Streamlit theme/server config.
 |
@@ -223,8 +247,7 @@ rag-chatbot-streamlit/
     +-- architecture.md                Architecture notes.
     +-- demo_flow.md                   Suggested demo script.
     +-- evaluation.md                  Evaluation plan and question types.
-    +-- slack_tracker.md               Slack project tracker template.
-    +-- team_plan.md                   Three-person team work plan.
+    +-- team_plan.md                   Team work plan.
 ```
 
 ## Prerequisites
@@ -235,7 +258,7 @@ Install the following:
 - uv
 - Git
 - Optional: Docker and Docker Compose
-- Optional: an LLM API key, such as Groq or OpenAI-compatible provider
+- Optional: an LLM API key, such as Groq or an OpenAI-compatible provider
 
 Check uv:
 
@@ -300,6 +323,8 @@ Never commit real API keys.
 
 ## Local Setup With uv
 
+This project intentionally uses uv instead of `python -m venv`, `pip install`, or plain `python script.py` workflows.
+
 ### Backend
 
 ```bash
@@ -314,9 +339,7 @@ cd frontend
 uv sync
 ```
 
-This project intentionally uses uv instead of `python -m venv`, `pip install`, or plain `python script.py` workflows.
-
-## Running The App
+## Running the App
 
 Start the backend in one terminal:
 
@@ -358,7 +381,7 @@ The frontend expects the backend at:
 http://localhost:8000
 ```
 
-You can change this in the sidebar using the Backend URL input.
+You can change this in the Streamlit sidebar using the Backend URL input.
 
 ## API Reference
 
@@ -523,16 +546,16 @@ Example response:
 }
 ```
 
-## How The RAG Pipeline Works
+## How the RAG Pipeline Works
 
 1. A user uploads a supported technical document.
 2. The backend validates the file type and size.
 3. The file is saved under `backend/data/raw/`.
 4. The loader extracts text:
-   - PDF pages are extracted with page metadata.
+   - PDF pages are extracted with page metadata where available.
    - DOCX files are read paragraph by paragraph.
    - TXT, MD, and Markdown files are read as text documents.
-5. Text is cleaned to remove extra whitespace and formatting noise.
+5. Text is cleaned to reduce whitespace and formatting noise.
 6. Text is split into overlapping chunks.
 7. Each chunk receives metadata:
    - document ID
@@ -550,7 +573,7 @@ Example response:
 13. The verifier checks citation integrity.
 14. The API returns the answer plus structured provenance.
 
-## Grounding And Provenance
+## Grounding and Provenance
 
 Every factual document-mode answer should be supported by retrieved sources.
 
@@ -647,7 +670,7 @@ When a response comes from cache, the backend adds a warning:
 Returned from local response cache; no LLM API call was made.
 ```
 
-## Testing And Quality Checks
+## Testing and Quality Checks
 
 Run backend tests:
 
@@ -736,8 +759,6 @@ Use direct uv commands when:
 
 ## Demo Flow
 
-Suggested demo:
-
 1. Start the backend:
 
 ```bash
@@ -775,46 +796,7 @@ What is the Wi-Fi password for this inverter?
 
 ## Team Workflow
 
-Recommended roles for a three-person team:
-
-### Backend/API Lead
-
-- Own FastAPI endpoints.
-- Maintain upload validation.
-- Improve API error handling.
-- Add backend tests.
-- Review environment and Docker setup.
-
-### RAG/AI Pipeline Lead
-
-- Improve document loading.
-- Improve chunking and metadata preservation.
-- Tune embeddings and retrieval thresholds.
-- Improve prompt quality.
-- Expand exact fault-code support.
-- Evaluate answer quality and citation accuracy.
-
-### Frontend/Evaluation Lead
-
-- Own Streamlit UI.
-- Improve source card design.
-- Prepare demo documents.
-- Build evaluation question sets.
-- Record test outcomes.
-- Support final presentation.
-
-### GitHub Workflow
-
-Use branches:
-
-- `main`
-- `dev`
-- `backend`
-- `rag-pipeline`
-- `frontend`
-- `docs`
-
-Recommended flow:
+Recommended GitHub flow:
 
 1. Create or pick a GitHub issue.
 2. Create a branch from `dev`.
@@ -824,7 +806,7 @@ Recommended flow:
 6. Push the branch.
 7. Open a pull request into `dev`.
 8. Ask at least one teammate to review.
-9. Merge after tests pass.
+9. Merge after tests pass and the review is approved.
 10. Periodically merge `dev` into `main` for stable demo versions.
 
 Suggested PR checklist:
@@ -837,11 +819,27 @@ Suggested PR checklist:
 - Screenshots if UI changed?
 ```
 
+## Acceptance Criteria
+
+The MVP is successful when:
+
+- A user can upload a technical manual.
+- The backend extracts and chunks the document.
+- Chunks are embedded and stored in the vector database.
+- The Streamlit UI can ask questions.
+- The backend retrieves relevant chunks.
+- The generated answer uses retrieved evidence.
+- Citations and source cards are shown.
+- Unsupported questions are refused in document mode.
+- Exact fault-code lookup returns matching chunks without an LLM call.
+- Tests pass with `uv run pytest`.
+- The app can be started with documented uv commands.
+
 ## Limitations
 
-- OCR for scanned PDFs is not implemented.
 - Table extraction from complex manuals may be imperfect.
 - PDF text extraction quality depends on the PDF.
+- OCR for scanned PDFs depends on local OCR tools being installed and configured.
 - Exact fault-code lookup is keyword-based and may need domain-specific tuning.
 - LLM quality depends on the configured provider and model.
 - The project is built for local/demo use, not production multi-user deployment yet.
@@ -849,7 +847,6 @@ Suggested PR checklist:
 
 ## Future Improvements
 
-- OCR support for scanned manuals.
 - Better table extraction.
 - Advanced section heading detection.
 - Metadata filters by document, equipment type, manufacturer, or model.
@@ -931,22 +928,6 @@ rm -rf data/raw data/processed data/vector_store
 
 Restart the backend and upload documents again.
 
-## Acceptance Criteria
-
-The MVP is successful when:
-
-- A user can upload a technical manual.
-- The backend extracts and chunks the document.
-- Chunks are embedded and stored in the vector database.
-- The Streamlit UI can ask questions.
-- The backend retrieves relevant chunks.
-- The generated answer uses retrieved evidence.
-- Citations and source cards are shown.
-- Unsupported questions are refused in document mode.
-- Exact fault-code lookup returns matching chunks without an LLM call.
-- Tests pass with `uv run pytest`.
-- The app can be started with documented uv commands.
-
 ## License
 
-No license file is currently included. Add a license before publishing the repository publicly if you want others to reuse or modify the code.
+This project is licensed under the terms in [LICENSE.md](LICENSE.md).
