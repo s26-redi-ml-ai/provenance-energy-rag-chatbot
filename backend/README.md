@@ -37,7 +37,7 @@ uv run ruff format .
 - `LLM_PROVIDER=openai` uses an OpenAI-compatible `/chat/completions` endpoint.
 - `EMBEDDING_PROVIDER=sentence-transformers` is the default local embedding path.
 - `EMBEDDING_PROVIDER=hash` is deterministic and useful for tests.
-- `ALLOW_GENERAL_KNOWLEDGE=false` keeps the chatbot document-grounded by default.
+- `ALLOW_GENERAL_KNOWLEDGE=true` allows explicit General mode; use Document mode when answers must come only from uploaded manuals.
 
 ## API Examples
 
