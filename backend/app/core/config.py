@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     chunk_overlap: int = 150
     top_k: int = 5
     similarity_threshold: float = 0.35
-    allow_general_knowledge: bool = False
+    allow_general_knowledge: bool = True
 
     response_cache_enabled: bool = True
     response_cache_ttl_seconds: int = 604800
