@@ -389,19 +389,6 @@ st.markdown(
         padding-left: 56px !important;
     }
 
-    .chat-avatar {
-        margin-right: 8px;
-        display: inline-flex;
-        vertical-align: middle;
-    }
-
-    /* Keep the right-side Getting Started panel visible at the top */
-    .right-getting-started {
-        position: sticky;
-        top: 1.25rem;
-        z-index: 5;
-    }
-
     [data-testid="stMarkdownContainer"] h4 {
         font-size: 0.78rem !important;
         font-weight: 800 !important;
@@ -473,6 +460,103 @@ st.markdown(
         border: none !important;
         border-radius: var(--radius-sm) !important;
         font-weight: 800 !important;
+    }
+
+    .guide-panel {
+        background: linear-gradient(135deg, rgba(18, 138, 107, 0.07), rgba(37, 99, 235, 0.035));
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 1.05rem 1.15rem;
+        margin-bottom: 1rem;
+    }
+
+    .guide-title {
+        color: var(--brand-dark);
+        font-size: 1rem;
+        font-weight: 800;
+        margin-bottom: 0.35rem;
+    }
+
+    .guide-subtitle {
+        color: var(--muted);
+        font-size: 0.86rem;
+        line-height: 1.45;
+        margin-bottom: 0.85rem;
+    }
+
+    .guide-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.85rem;
+    }
+
+    .guide-step {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 0.65rem;
+        min-width: 0;
+    }
+
+    .guide-number {
+        width: 34px;
+        height: 34px;
+        border-radius: var(--radius-sm);
+        background: var(--brand-soft);
+        color: var(--brand);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+    }
+
+    .guide-step strong {
+        display: block;
+        font-size: 0.88rem;
+        line-height: 1.25;
+        margin-bottom: 0.22rem;
+    }
+
+    .guide-step span {
+        color: var(--muted);
+        display: block;
+        font-size: 0.8rem;
+        line-height: 1.45;
+    }
+
+    .message-timestamp {
+        color: var(--faint);
+        font-size: 0.74rem;
+        line-height: 1.3;
+        padding-top: 0.45rem;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    [data-testid="stChatMessage"] button {
+        min-width: 112px;
+        white-space: nowrap;
+    }
+
+    @media (max-width: 980px) {
+        .guide-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 640px) {
+        .guide-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .message-timestamp {
+            text-align: left;
+            white-space: normal;
+        }
     }
     </style>
     """,
@@ -750,17 +834,6 @@ def render_message(message: dict[str, Any], index: int) -> None:
     with st.chat_message(role):
         answer = sanitize_text(message.get("answer", ""))
 
-        # Layout: slightly wider avatar column to avoid overlap
-        cols = st.columns([0.09, 0.91])
-        avatar_html = (
-            "<div class='chat-avatar' style='width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;" \
-            "font-weight:700;color:#fff;background:#128a6b;'>A</div>"
-            if role == "assistant"
-            else "<div class='chat-avatar' style='width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;" \
-            "font-weight:700;color:#fff;background:#6b7280;'>U</div>"
-        )
-        cols[0].markdown(avatar_html, unsafe_allow_html=True)
-
         # Natural-language preference: if the previous user message asked about a fault code,
         # and the assistant returned a short code, render a friendly sentence.
         friendly_answer = message.get("answer", "")
@@ -776,19 +849,31 @@ def render_message(message: dict[str, Any], index: int) -> None:
         except Exception:
             pass
 
-        # Render the (possibly adjusted) answer as markdown
-        cols[1].markdown(friendly_answer, unsafe_allow_html=True)
+        st.markdown(
+            f"<span class='chat-role-marker chat-role-{role}'></span>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(friendly_answer, unsafe_allow_html=True)
 
         # Action buttons and timestamp
         is_response = bool(message.get("copyable", False))
         key_seed = hashlib.sha1(answer.encode("utf-8")).hexdigest()[:10]
-        act_cols = cols[1].columns([0.42, 0.18, 0.40])
         if is_response:
             render_copy_answer_button(answer, key_seed)
-            if act_cols[0].button("Insert reply", key=f"quote-{key_seed}"):
+            action_col, spacer_col, time_col = st.columns([0.24, 0.44, 0.32])
+            if action_col.button("Insert reply", key=f"quote-{key_seed}", width="stretch"):
                 # Write directly into the chat textarea widget state so it appears immediately
                 st.session_state["chat_textarea"] = f"> {answer}\n\n"
-        act_cols[2].markdown(f"<div style='color:var(--faint);font-size:12px;margin-top:6px;'>{timestamp}</div>", unsafe_allow_html=True)
+            spacer_col.empty()
+            time_col.markdown(
+                f"<div class='message-timestamp'>{timestamp}</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f"<div class='message-timestamp'>{timestamp}</div>",
+                unsafe_allow_html=True,
+            )
 
         # Metadata, warnings, and sources for assistant messages
         if role == "assistant":
@@ -987,29 +1072,25 @@ st.session_state.pending_question = None
 # Top Getting Started banner (moved from the right column)
 st.markdown(
     """
-    <div style="background: linear-gradient(135deg, rgba(29, 158, 117, 0.04) 0%, rgba(29, 158, 117, 0.02) 100%);
-                border: 1px solid var(--brand-pale);
-                border-radius: var(--radius-md);
-                padding: 1rem; margin-bottom: 1rem;">
-        <div style="font-size:1rem;font-weight:800;margin-bottom:0.35rem;color:var(--brand-dark);">🚀 Getting Started</div>
-        <div style="font-size:0.86rem;color:var(--muted);margin-bottom:0.6rem;">Quick steps to upload, index, and query your manuals.</div>
-        <div style="font-size:0.84rem;color:var(--muted);margin-bottom:0.8rem;">You can insert reply as a follow up question.</div>
-        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;">
-            <div style="display:flex;gap:0.6rem;align-items:flex-start;">
-                <div style="width:36px;height:36px;background:var(--brand-soft);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--brand);font-weight:800;">1</div>
-                <div><strong>Upload</strong><div style="color:var(--faint);font-size:0.85rem;">Add manuals from the left sidebar and click <em>Index document</em>.</div></div>
+    <div class="guide-panel">
+        <div class="guide-title">Getting Started</div>
+        <div class="guide-subtitle">Quick steps to upload, index, and query your manuals. You can insert a reply as a follow-up question.</div>
+        <div class="guide-grid">
+            <div class="guide-step">
+                <div class="guide-number">1</div>
+                <div><strong>Upload</strong><span>Add manuals from the sidebar.</span></div>
             </div>
-            <div style="display:flex;gap:0.6rem;align-items:flex-start;">
-                <div style="width:36px;height:36px;background:var(--brand-soft);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--brand);font-weight:800;">2</div>
-                <div><strong>Index</strong><div style="color:var(--faint);font-size:0.85rem;">Wait for the index to complete; you'll see a success message.</div></div>
+            <div class="guide-step">
+                <div class="guide-number">2</div>
+                <div><strong>Index</strong><span>Click <em>Index document</em> and wait for success.</span></div>
             </div>
-            <div style="display:flex;gap:0.6rem;align-items:flex-start;">
-                <div style="width:36px;height:36px;background:var(--brand-soft);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--brand);font-weight:800;">3</div>
-                <div><strong>Ask</strong><div style="color:var(--faint);font-size:0.85rem;">Enter your question in the middle column and receive grounded answers.</div></div>
+            <div class="guide-step">
+                <div class="guide-number">3</div>
+                <div><strong>Ask</strong><span>Enter a question and review grounded answers.</span></div>
             </div>
-            <div style="display:flex;gap:0.6rem;align-items:flex-start;">
-                <div style="width:36px;height:36px;background:var(--brand-soft);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--brand);font-weight:800;">4</div>
-                <div><strong>Follow up</strong><div style="color:var(--faint);font-size:0.85rem;">You can insert reply as a follow up question.</div></div>
+            <div class="guide-step">
+                <div class="guide-number">4</div>
+                <div><strong>Follow up</strong><span>Use <em>Insert reply</em> to quote an answer.</span></div>
             </div>
         </div>
     </div>
@@ -1017,45 +1098,38 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-chat_col, right_col = st.columns([1.55, 0.9], gap="large")
+with st.container(border=True):
+    st.markdown(
+        """
+        <div class="conversation-header">
+            <strong>Query and response</strong>
+            <span>Ask a grounded question below. Upload manuals from the left sidebar or use starter prompts below.</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-with chat_col:
-    with st.container(border=True):
-        st.markdown(
-            """
-            <div class="conversation-header">
-                <strong>Query and response</strong>
-                <span>Ask a grounded question below. Upload manuals from the left or use starter prompts on the right.</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
+    for i, message in enumerate(st.session_state.messages):
+        render_message(message, i)
+
+    with st.form("chat_question_form", clear_on_submit=True):
+        # If Insert reply set the widget state directly above, the textarea will show it
+        # because we bind the widget to the `chat_textarea` key.
+        chat_question = st.text_area(
+            "Question",
+            placeholder="Ask about fault codes, maintenance, troubleshooting, or source pages...",
+            height=92,
+            label_visibility="collapsed",
+            key="chat_textarea",
+        )
+        submitted_chat = st.form_submit_button(
+            "Ask question",
+            type="primary",
+            width="stretch",
         )
 
-        for i, message in enumerate(st.session_state.messages):
-            render_message(message, i)
-
-        with st.form("chat_question_form", clear_on_submit=True):
-            # If Quote set the widget state directly above, the textarea will show it because
-            # we bind the widget to the `chat_textarea` key. Do not pass `value=` here.
-            chat_question = st.text_area(
-                "Question",
-                placeholder="Ask about fault codes, maintenance, troubleshooting, or source pages...",
-                height=92,
-                label_visibility="collapsed",
-                key="chat_textarea",
-            )
-            submitted_chat = st.form_submit_button(
-                "Ask question",
-                type="primary",
-                width="stretch",
-            )
-
-        if submitted_chat and chat_question.strip():
-            question_to_process = chat_question.strip()
-
-with right_col:
-    # Right column intentionally minimal to avoid duplicate Getting Started banners
-    st.empty()
+    if submitted_chat and chat_question.strip():
+        question_to_process = chat_question.strip()
 
 
 with st.container(border=True):
