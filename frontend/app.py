@@ -384,6 +384,24 @@ st.markdown(
         line-height: 1.62 !important;
     }
 
+    /* make room for custom avatars so built-in icons don't overlap text */
+    [data-testid="stChatMessage"] {
+        padding-left: 56px !important;
+    }
+
+    .chat-avatar {
+        margin-right: 8px;
+        display: inline-flex;
+        vertical-align: middle;
+    }
+
+    /* Keep the right-side Getting Started panel visible at the top */
+    .right-getting-started {
+        position: sticky;
+        top: 1.25rem;
+        z-index: 5;
+    }
+
     [data-testid="stMarkdownContainer"] h4 {
         font-size: 0.78rem !important;
         font-weight: 800 !important;
@@ -720,23 +738,60 @@ def render_copy_answer_button(answer: str, key_seed: str) -> None:
     )
 
 
-def render_message(message: dict[str, Any]) -> None:
-    """Render one chat message plus trust labels, copy action, and citations."""
+def render_message(message: dict[str, Any], index: int) -> None:
+    """Render one chat message plus trust labels, copy action, and citations.
+
+    Args:
+        message: message dict from session_state
+        index: position of the message in the conversation list
+    """
     role = sanitize_text(message.get("role"), "assistant")
+    timestamp = sanitize_text(message.get("timestamp"), time.strftime("%Y-%m-%d %H:%M"))
     with st.chat_message(role):
         answer = sanitize_text(message.get("answer", ""))
-        st.markdown(
-            f"<span class='chat-role-marker chat-role-{role}'></span>",
-            unsafe_allow_html=True,
+
+        # Layout: slightly wider avatar column to avoid overlap
+        cols = st.columns([0.09, 0.91])
+        avatar_html = (
+            "<div class='chat-avatar' style='width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;" \
+            "font-weight:700;color:#fff;background:#128a6b;'>A</div>"
+            if role == "assistant"
+            else "<div class='chat-avatar' style='width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;" \
+            "font-weight:700;color:#fff;background:#6b7280;'>U</div>"
         )
-        st.write(answer)
+        cols[0].markdown(avatar_html, unsafe_allow_html=True)
 
-        if message["role"] == "assistant":
-            is_response = bool(message.get("copyable", False))
-            if is_response:
-                key_seed = hashlib.sha1(answer.encode("utf-8")).hexdigest()[:12]
-                render_copy_answer_button(answer, key_seed)
+        # Natural-language preference: if the previous user message asked about a fault code,
+        # and the assistant returned a short code, render a friendly sentence.
+        friendly_answer = message.get("answer", "")
+        try:
+            if role == "assistant" and index > 0:
+                prev = st.session_state.messages[index - 1]
+                prev_text = sanitize_text(prev.get("answer", "")).lower()
+                # detect fault/code query in the previous user message
+                if any(keyword in prev_text for keyword in ("fault", "reference code", "fault code", "reference")):
+                    # if assistant answer looks like a short code, wrap it
+                    if re.match(r"^[A-Za-z0-9\-]{1,8}$", friendly_answer.strip()):
+                        friendly_answer = f"The fault reference code is {friendly_answer.strip()}"
+        except Exception:
+            pass
 
+        # Render the (possibly adjusted) answer as markdown
+        cols[1].markdown(friendly_answer, unsafe_allow_html=True)
+
+        # Action buttons and timestamp
+        is_response = bool(message.get("copyable", False))
+        key_seed = hashlib.sha1(answer.encode("utf-8")).hexdigest()[:10]
+        act_cols = cols[1].columns([0.42, 0.18, 0.40])
+        if is_response:
+            render_copy_answer_button(answer, key_seed)
+            if act_cols[0].button("Insert reply", key=f"quote-{key_seed}"):
+                # Write directly into the chat textarea widget state so it appears immediately
+                st.session_state["chat_textarea"] = f"> {answer}\n\n"
+        act_cols[2].markdown(f"<div style='color:var(--faint);font-size:12px;margin-top:6px;'>{timestamp}</div>", unsafe_allow_html=True)
+
+        # Metadata, warnings, and sources for assistant messages
+        if role == "assistant":
             if message.get("show_metadata", is_response):
                 render_trust_summary(message)
 
@@ -929,6 +984,39 @@ with st.sidebar:
 question_to_process = st.session_state.pending_question
 st.session_state.pending_question = None
 
+# Top Getting Started banner (moved from the right column)
+st.markdown(
+    """
+    <div style="background: linear-gradient(135deg, rgba(29, 158, 117, 0.04) 0%, rgba(29, 158, 117, 0.02) 100%);
+                border: 1px solid var(--brand-pale);
+                border-radius: var(--radius-md);
+                padding: 1rem; margin-bottom: 1rem;">
+        <div style="font-size:1rem;font-weight:800;margin-bottom:0.35rem;color:var(--brand-dark);">🚀 Getting Started</div>
+        <div style="font-size:0.86rem;color:var(--muted);margin-bottom:0.6rem;">Quick steps to upload, index, and query your manuals.</div>
+        <div style="font-size:0.84rem;color:var(--muted);margin-bottom:0.8rem;">You can insert reply as a follow up question.</div>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;">
+            <div style="display:flex;gap:0.6rem;align-items:flex-start;">
+                <div style="width:36px;height:36px;background:var(--brand-soft);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--brand);font-weight:800;">1</div>
+                <div><strong>Upload</strong><div style="color:var(--faint);font-size:0.85rem;">Add manuals from the left sidebar and click <em>Index document</em>.</div></div>
+            </div>
+            <div style="display:flex;gap:0.6rem;align-items:flex-start;">
+                <div style="width:36px;height:36px;background:var(--brand-soft);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--brand);font-weight:800;">2</div>
+                <div><strong>Index</strong><div style="color:var(--faint);font-size:0.85rem;">Wait for the index to complete; you'll see a success message.</div></div>
+            </div>
+            <div style="display:flex;gap:0.6rem;align-items:flex-start;">
+                <div style="width:36px;height:36px;background:var(--brand-soft);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--brand);font-weight:800;">3</div>
+                <div><strong>Ask</strong><div style="color:var(--faint);font-size:0.85rem;">Enter your question in the middle column and receive grounded answers.</div></div>
+            </div>
+            <div style="display:flex;gap:0.6rem;align-items:flex-start;">
+                <div style="width:36px;height:36px;background:var(--brand-soft);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--brand);font-weight:800;">4</div>
+                <div><strong>Follow up</strong><div style="color:var(--faint);font-size:0.85rem;">You can insert reply as a follow up question.</div></div>
+            </div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 chat_col, right_col = st.columns([1.55, 0.9], gap="large")
 
 with chat_col:
@@ -943,15 +1031,18 @@ with chat_col:
             unsafe_allow_html=True,
         )
 
-        for message in st.session_state.messages:
-            render_message(message)
+        for i, message in enumerate(st.session_state.messages):
+            render_message(message, i)
 
         with st.form("chat_question_form", clear_on_submit=True):
+            # If Quote set the widget state directly above, the textarea will show it because
+            # we bind the widget to the `chat_textarea` key. Do not pass `value=` here.
             chat_question = st.text_area(
                 "Question",
                 placeholder="Ask about fault codes, maintenance, troubleshooting, or source pages...",
                 height=92,
                 label_visibility="collapsed",
+                key="chat_textarea",
             )
             submitted_chat = st.form_submit_button(
                 "Ask question",
@@ -963,19 +1054,14 @@ with chat_col:
             question_to_process = chat_question.strip()
 
 with right_col:
-    st.markdown(
-        """
-        <div class="hero">
-            <h1>Traceable technical support</h1>
-            <p>Use the side panels to manage documents, inspect status, run exact fault-code lookup, and start common queries.</p>
-            <div class="flow-grid">
-                <div class="flow-step"><strong>1. Upload</strong><span>Add manuals from the left sidebar.</span></div>
-                <div class="flow-step"><strong>2. Ask</strong><span>Keep the conversation in the middle.</span></div>
-                <div class="flow-step"><strong>3. Verify</strong><span>Check citations inside each answer.</span></div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    # Right column intentionally minimal to avoid duplicate Getting Started banners
+    st.empty()
+
+
+with st.container(border=True):
+    st.markdown("### Fault-code exact lookup")
+    st.caption(
+        "Searches exact code variants in indexed manuals first, without spending an LLM API call."
     )
 
     render_metric_cards(docs, mode, backend_online)
