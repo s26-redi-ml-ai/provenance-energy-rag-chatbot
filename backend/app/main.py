@@ -31,11 +31,6 @@ def create_app() -> FastAPI:
         """Return the project-specific liveness response used by the frontend and tests."""
         return {"status": "ok"}
 
-    @app.get("/health")
-    def health() -> dict[str, str]:
-        """Return a conventional health-check response for deployment tools."""
-        return {"status": "ok"}
-
     app.include_router(upload.router)
     app.include_router(documents.router)
     app.include_router(chat.router)
