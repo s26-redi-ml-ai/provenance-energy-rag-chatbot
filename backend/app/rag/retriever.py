@@ -1,3 +1,4 @@
+import math
 import re
 from dataclasses import replace
 
@@ -7,7 +8,8 @@ from app.rag.types import RetrievedChunk
 from app.rag.vector_store import VectorStore
 
 FAULT_CONTEXT_RE = re.compile(
-    r"\b(fault|error|alarm|code|warning|f\d{1,3}|row|id|status)\b", re.IGNORECASE
+    r"\b(fault|error|alarm|code|warning|f\d{1,3}|row|id|status)\b",
+    re.IGNORECASE,
 )
 FAULT_CODE_RE = re.compile(
     r"\b(?:fault|error|alarm|warning|code|row|id)?\s*[-#: ]*\s*([A-Z]?\d{1,3})\b",
@@ -17,8 +19,6 @@ COMPACT_CODE_RE = re.compile(r"\b([A-Z]\d{1,3})\b", re.IGNORECASE)
 
 
 class Retriever:
-    """Coordinates semantic retrieval and exact-code keyword retrieval."""
-
     def __init__(
         self,
         *,
@@ -26,22 +26,24 @@ class Retriever:
         embeddings: EmbeddingProvider,
         vector_store: VectorStore,
     ) -> None:
-        """Store retriever dependencies from the service layer."""
         self.settings = settings
         self.embeddings = embeddings
         self.vector_store = vector_store
 
     def retrieve(self, question: str, top_k: int | None = None) -> list[RetrievedChunk]:
-        """Find the strongest evidence chunks for a user question."""
         limit = top_k or self.settings.top_k
         query_embedding = self.embeddings.embed_query(question)
         semantic = self.vector_store.semantic_search(query_embedding, top_k=max(limit * 2, limit))
         semantic = [
-            item for item in semantic if item.relevance_score >= self.settings.similarity_threshold
+            item
+            for item in semantic
+            if item.relevance_score >= self.settings.similarity_threshold
         ]
 
         exact_terms = extract_exact_terms(question)
-        keyword = self.vector_store.keyword_search(exact_terms, top_k=limit) if exact_terms else []
+        keyword = (
+            self.vector_store.keyword_search(exact_terms, top_k=limit) if exact_terms else []
+        )
 
         merged: dict[str, RetrievedChunk] = {}
         for item in semantic + keyword:
@@ -50,7 +52,9 @@ class Retriever:
                 merged[item.chunk.chunk_id] = item
 
         sorted_results = sorted(
-            merged.values(), key=lambda item: item.relevance_score, reverse=True
+            merged.values(),
+            key=lambda item: item.relevance_score,
+            reverse=True,
         )[:limit]
 
         latitude_default = 28.4
@@ -59,11 +63,8 @@ class Retriever:
 
         updated_results = []
         for item in sorted_results:
-            lexical_density = item.chunk.metadata.get("lexical_density", 0.5)
+            lexical_density = getattr(item.chunk, "lexical_density", 0.5)
             confidence = _evaluate_confidence(item.relevance_score, lexical_density)
-
-            # Use replace() to update the frozen dataclass instance safely
-            # This ignores the constructor and prevents TypeErrors
             updated_results.append(
                 replace(
                     item,
@@ -99,7 +100,6 @@ def _evaluate_confidence(relevance_score: float, lexical_density: float) -> str:
 
 
 def extract_exact_terms(question: str) -> list[str]:
-    """Extract possible fault-code variants from a user question."""
     if not FAULT_CONTEXT_RE.search(question):
         return []
 

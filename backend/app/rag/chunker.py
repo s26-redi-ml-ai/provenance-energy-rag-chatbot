@@ -31,7 +31,7 @@ def chunk_loaded_texts(
         chunk_overlap: Number of words repeated between neighboring chunks.
 
     Returns:
-        Searchable DocumentChunk objects with page, section, and statistical metadata.
+        Searchable DocumentChunk objects matching the exact target schema.
     """
     if chunk_size <= 0:
         msg = f"Invalid chunk_size config ({chunk_size}). Must be a positive integer."
@@ -60,12 +60,7 @@ def chunk_loaded_texts(
             global_chunk_index += 1
             page_part = f"p{item.page}" if item.page is not None else "pna"
             chunk_id = f"{document_id}_{page_part}_c{global_chunk_index}"
-
             raw_text = " ".join(window).strip()
-            w_count = len(window)
-            c_count = len(raw_text)
-            unique_words = {w.lower() for w in window}
-            lexical_density = round(len(unique_words) / w_count, 3) if w_count > 0 else 0.0
 
             chunks.append(
                 DocumentChunk(
@@ -77,12 +72,6 @@ def chunk_loaded_texts(
                     section=section,
                     source_path=str(source_path),
                     upload_time=upload_time,
-                    metadata={
-                        "word_count": w_count,
-                        "char_count": c_count,
-                        "lexical_density": lexical_density,
-                        "chunk_index": global_chunk_index,
-                    },
                 )
             )
 
