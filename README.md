@@ -24,6 +24,7 @@ For the MVP, the system is successful when it can:
 ## Table of Contents
 
 - [Project Overview](#project-overview)
+- [App Screenshots](#app-screenshots)
 - [Problem Statement](#problem-statement)
 - [Dataset](#dataset)
 - [Key Features](#key-features)
@@ -65,6 +66,24 @@ This project provides a trustworthy technical-support assistant that can:
 - Provide a fast exact fault-code lookup that does not call the LLM.
 
 The goal is not just to "chat with a PDF". The goal is to build a transparent document question-answering system that can be extended toward real-world technical support.
+
+## App Screenshots
+
+The screenshots below show the main Streamlit interface and the core workflows used in the demo.
+
+### Main Interface
+
+![Energy RAG Support main interface](docs/assets/app-screenshot.png)
+
+### Core Workflows
+
+| Upload and Indexing | Chat With Sources |
+| --- | --- |
+| ![Upload and indexing workflow](docs/assets/upload-and-indexing.png) | ![Chat answer with source evidence](docs/assets/chat-with-sources.png) |
+
+| Fault-Code Lookup |
+| --- |
+| ![Fault-code lookup table](docs/assets/fault-code-lookup.png) |
 
 ## Problem Statement
 
