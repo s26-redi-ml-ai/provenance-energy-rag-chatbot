@@ -11,7 +11,12 @@ from app.rag.service import RAGService
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.get("", response_model=list[DocumentMetadata])
+@router.get(
+    "",
+    response_model=list[DocumentMetadata],
+    summary="List indexed documents",
+    description="Returns metadata for all documents currently indexed by the backend.",
+)
 def list_documents(
     rag_service: Annotated[RAGService, Depends(get_rag_service)],
 ) -> list[DocumentMetadata]:

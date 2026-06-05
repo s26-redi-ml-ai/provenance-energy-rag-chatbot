@@ -16,7 +16,13 @@ from app.rag.service import RAGService
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.post("/upload", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/upload",
+    response_model=UploadResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload a document",
+    description="Uploads and indexes a PDF, DOCX, TXT, or Markdown file.",
+)
 async def upload_document(
     file: Annotated[UploadFile, File(...)],
     settings: Annotated[Settings, Depends(get_settings)],
