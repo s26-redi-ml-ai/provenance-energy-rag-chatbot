@@ -1235,7 +1235,7 @@ with st.container(border=True):
         render_message(message, i)
 
     # The textarea stays outside a form so the character counter can update while typing.
-    chat_question = st.text_area(
+    st.text_area(
         "Question",
         placeholder="Ask about fault codes, maintenance, troubleshooting, or source pages...",
         height=120,
