@@ -15,6 +15,8 @@ import streamlit as st
 
 DEFAULT_BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 MODES = ["document", "hybrid", "general"]
+CHAT_CHARACTER_LIMIT = 4000
+CHAT_MINIMUM_LENGTH = 2
 STARTER_QUESTIONS = [
     "What does fault code 07 mean?",
     "Which troubleshooting steps are listed for overload?",
@@ -384,6 +386,43 @@ st.markdown(
         line-height: 1.62 !important;
     }
 
+    [data-testid="stChatMessage"] [data-testid="stButton"] button {
+        width: 100% !important;
+        height: 30px !important;
+        min-height: 30px !important;
+        padding: 4px 8px !important;
+        border: 1px solid rgba(128, 128, 128, 0.22) !important;
+        border-radius: 7px !important;
+        background: rgba(18, 138, 107, 0.10) !important;
+        color: #128a6b !important;
+        box-shadow: none !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        line-height: 1 !important;
+    }
+
+    [data-testid="stChatMessage"] [data-testid="stButton"] button:hover {
+        border-color: rgba(18, 138, 107, 0.34) !important;
+        background: rgba(18, 138, 107, 0.15) !important;
+        color: #0f6e56 !important;
+    }
+
+    [data-testid="stChatMessage"] [data-testid="stButton"] button p {
+        color: inherit !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        line-height: 1 !important;
+        margin: 0 !important;
+    }
+
+    .chat-input-notice {
+        margin: 0.15rem 0 0.45rem;
+        color: var(--danger);
+        font-size: 0.76rem;
+        font-weight: 700;
+        line-height: 1.4;
+    }
+
     [data-testid="stMarkdownContainer"] h4 {
         font-size: 0.78rem !important;
         font-weight: 800 !important;
@@ -444,17 +483,185 @@ st.markdown(
         margin: 0.65rem 0 1rem;
     }
 
+    .starter-prompt-shell {
+        border: 1px solid rgba(18, 138, 107, 0.18);
+        border-radius: var(--radius-md);
+        background:
+            linear-gradient(135deg, rgba(18, 138, 107, 0.105), rgba(37, 99, 235, 0.055)),
+            var(--surface-0);
+        padding: 0.95rem 1rem;
+        margin-bottom: 0.8rem;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.045);
+    }
+
+    .starter-prompt-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.45rem;
+    }
+
+    .starter-prompt-kicker {
+        color: var(--brand);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        margin-bottom: 0.18rem;
+    }
+
+    .starter-prompt-shell h3 {
+        color: var(--ink);
+        font-size: 1rem;
+        font-weight: 850;
+        line-height: 1.2;
+        margin: 0;
+    }
+
+    .starter-prompt-shell p {
+        color: var(--muted);
+        font-size: 0.82rem;
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    .starter-prompt-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+        border-radius: 999px;
+        border: 1px solid rgba(37, 99, 235, 0.22);
+        background: rgba(37, 99, 235, 0.10);
+        color: var(--blue);
+        font-size: 0.7rem;
+        font-weight: 800;
+        padding: 4px 9px;
+    }
+
     .copy-help {
         color: var(--faint);
         font-size: 0.76rem;
         margin: -0.2rem 0 0.7rem;
     }
 
-    button[kind="primary"] {
-        background: var(--brand) !important;
-        border: none !important;
-        border-radius: var(--radius-sm) !important;
-        font-weight: 800 !important;
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] {
+        background: #128a6b !important;
+        border: 1px solid #128a6b !important;
+        color: #ffffff !important;
+        box-shadow: 0 8px 18px rgba(18, 138, 107, 0.18) !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"]:hover {
+        background: #0f6e56 !important;
+        border-color: #0f6e56 !important;
+        color: #ffffff !important;
+        box-shadow: 0 10px 22px rgba(15, 110, 86, 0.22) !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] p {
+        color: #ffffff !important;
+    }
+
+    .guide-panel {
+        background: linear-gradient(135deg, rgba(18, 138, 107, 0.07), rgba(37, 99, 235, 0.035));
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 1.05rem 1.15rem;
+        margin-bottom: 1rem;
+    }
+
+    .guide-title {
+        color: var(--brand-dark);
+        font-size: 1rem;
+        font-weight: 800;
+        margin-bottom: 0.35rem;
+    }
+
+    .guide-subtitle {
+        color: var(--muted);
+        font-size: 0.86rem;
+        line-height: 1.45;
+        margin-bottom: 0.85rem;
+    }
+
+    .guide-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.85rem;
+    }
+
+    .guide-step {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 0.65rem;
+        min-width: 0;
+    }
+
+    .guide-number {
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        background: var(--brand-soft);
+        color: var(--brand);
+        border: 1px solid rgba(18, 138, 107, 0.24);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        line-height: 1;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+    }
+
+    .guide-step strong {
+        display: block;
+        font-size: 0.88rem;
+        line-height: 1.25;
+        margin-bottom: 0.22rem;
+    }
+
+    .guide-step span {
+        color: var(--muted);
+        display: block;
+        font-size: 0.8rem;
+        line-height: 1.45;
+    }
+
+    .message-timestamp {
+        color: var(--faint);
+        font-size: 0.74rem;
+        line-height: 1.3;
+        padding-top: 0.45rem;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    [data-testid="stChatMessage"] button {
+        min-width: 112px;
+        white-space: nowrap;
+    }
+
+    @media (max-width: 980px) {
+        .guide-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 640px) {
+        .guide-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .message-timestamp {
+            text-align: left;
+            white-space: normal;
+        }
     }
     </style>
     """,
@@ -581,6 +788,8 @@ def init_state() -> None:
     st.session_state.setdefault("fault_lookup_error", "")
     st.session_state.setdefault("last_upload_result", None)
     st.session_state.setdefault("pending_question", None)
+    st.session_state.setdefault("chat_textarea", "")
+    st.session_state.setdefault("chat_input_notice", "")
 
 
 def fetch_and_cache_documents(backend_url: str, force_refresh: bool = False) -> list:
@@ -674,7 +883,7 @@ def render_sources(sources: list[dict[str, Any]]) -> None:
 
 
 def render_copy_answer_button(answer: str, key_seed: str) -> None:
-    '''Render a small clipboard button for assistant answers.'''
+    """Render a compact clipboard button for assistant answers."""
     if not answer:
         return
 
@@ -683,60 +892,94 @@ def render_copy_answer_button(answer: str, key_seed: str) -> None:
     answer_json = json.dumps(answer)
     st.iframe(
         f"""
-        <div style="display:flex;align-items:center;gap:8px;margin:0 0 8px 0;">
-            <button id="{escaped_id}" type="button"
-                style="
-                    border:1px solid rgba(128,128,128,0.24);
-                    border-radius:8px;
-                    background:rgba(18,138,107,0.10);
-                    color:#128a6b;
-                    cursor:pointer;
-                    font-family:DM Sans, Segoe UI, sans-serif;
-                    font-size:12px;
-                    font-weight:700;
-                    padding:6px 10px;
-                ">
-                Copy answer
-            </button>
-            <span id="{escaped_id}-status"
-                style="font-family:DM Sans, Segoe UI, sans-serif;font-size:12px;color:#128a6b;">
-            </span>
-        </div>
+        <style>
+            html, body {{
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+                background: transparent;
+            }}
+        </style>
+        <button id="{escaped_id}" type="button"
+            style="
+                width:100%;
+                height:30px;
+                min-height:30px;
+                box-sizing:border-box;
+                display:inline-flex;
+                align-items:center;
+                justify-content:center;
+                border:1px solid rgba(128,128,128,0.22);
+                border-radius:7px;
+                background:rgba(18,138,107,0.10);
+                color:#128a6b;
+                cursor:pointer;
+                font-family:DM Sans, Segoe UI, sans-serif;
+                font-size:11px;
+                font-weight:700;
+                line-height:1;
+                padding:4px 8px;
+            ">
+            Copy Answer
+        </button>
         <script>
         const button = document.getElementById("{escaped_id}");
-        const status = document.getElementById("{escaped_id}-status");
         button.addEventListener("click", async () => {{
             try {{
                 await navigator.clipboard.writeText({answer_json});
-                status.textContent = "Copied";
-                setTimeout(() => status.textContent = "", 1600);
+                button.textContent = "Copied";
+                setTimeout(() => button.textContent = "Copy Answer", 1400);
             }} catch (error) {{
-                status.textContent = "Copy failed";
+                button.textContent = "Failed";
+                setTimeout(() => button.textContent = "Copy Answer", 1400);
             }}
         }});
         </script>
         """,
-        height=42,
+        height=32,
     )
 
 
-def render_message(message: dict[str, Any]) -> None:
-    """Render one chat message plus trust labels, copy action, and citations."""
+def render_message(message: dict[str, Any], index: int) -> None:
+    """Render one chat message plus trust labels, copy action, and citations.
+
+    Args:
+        message: message dict from session_state
+        index: position of the message in the conversation list
+    """
     role = sanitize_text(message.get("role"), "assistant")
+    timestamp = sanitize_text(message.get("timestamp"), time.strftime("%Y-%m-%d %H:%M"))
     with st.chat_message(role):
         answer = sanitize_text(message.get("answer", ""))
+
         st.markdown(
             f"<span class='chat-role-marker chat-role-{role}'></span>",
             unsafe_allow_html=True,
         )
-        st.write(answer)
+        st.markdown(answer)
 
-        if message["role"] == "assistant":
-            is_response = bool(message.get("copyable", False))
-            if is_response:
-                key_seed = hashlib.sha1(answer.encode("utf-8")).hexdigest()[:12]
+        # Action buttons and timestamp
+        is_response = bool(message.get("copyable", False))
+        key_seed = f"{index}-{hashlib.sha1(answer.encode('utf-8')).hexdigest()[:10]}"
+        if is_response:
+            copy_col, insert_col, time_col = st.columns([0.22, 0.22, 0.56])
+            with copy_col:
                 render_copy_answer_button(answer, key_seed)
+            if insert_col.button("Insert Reply", key=f"quote-{key_seed}", width="stretch"):
+                # Write directly into the chat textarea widget state so it appears immediately.
+                st.session_state["chat_textarea"] = f"> {answer}\n\n"
+            time_col.markdown(
+                f"<div class='message-timestamp'>{timestamp}</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f"<div class='message-timestamp'>{timestamp}</div>",
+                unsafe_allow_html=True,
+            )
 
+        # Metadata, warnings, and sources for assistant messages
+        if role == "assistant":
             if message.get("show_metadata", is_response):
                 render_trust_summary(message)
 
@@ -794,6 +1037,25 @@ def render_fault_lookup(result: dict[str, Any] | None) -> None:
 def queue_starter_question(question: str) -> None:
     """Store a starter question so the normal chat pipeline can process it."""
     st.session_state.pending_question = question
+
+
+def submit_chat_question() -> None:
+    """Queue the typed chat question and clear the input after a valid send."""
+    question = sanitize_text(st.session_state.get("chat_textarea", "")).strip()
+    if not question:
+        st.session_state.chat_input_notice = "Type a question before sending."
+        return
+    if len(question) < CHAT_MINIMUM_LENGTH:
+        st.session_state.chat_input_notice = "Use at least 2 characters before sending."
+        return
+    if len(question) > CHAT_CHARACTER_LIMIT:
+        st.session_state.chat_input_notice = (
+            f"Keep the question within {CHAT_CHARACTER_LIMIT:,} characters."
+        )
+        return
+    st.session_state.chat_input_notice = ""
+    st.session_state.pending_question = question
+    st.session_state.chat_textarea = ""
 
 
 init_state()
@@ -929,54 +1191,75 @@ with st.sidebar:
 question_to_process = st.session_state.pending_question
 st.session_state.pending_question = None
 
-chat_col, right_col = st.columns([1.55, 0.9], gap="large")
-
-with chat_col:
-    with st.container(border=True):
-        st.markdown(
-            """
-            <div class="conversation-header">
-                <strong>Query and response</strong>
-                <span>Ask a grounded question below. Upload manuals from the left or use starter prompts on the right.</span>
+# Top Getting Started banner (moved from the right column)
+st.markdown(
+    """
+    <div class="guide-panel">
+        <div class="guide-title">Getting Started</div>
+        <div class="guide-subtitle">Quick steps to upload, index, and query your manuals. You can insert a reply as a follow-up question.</div>
+        <div class="guide-grid">
+            <div class="guide-step">
+                <div class="guide-number">1</div>
+                <div><strong>Upload</strong><span>Add manuals from the sidebar.</span></div>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            <div class="guide-step">
+                <div class="guide-number">2</div>
+                <div><strong>Index</strong><span>Click <em>Index document</em> and wait for success.</span></div>
+            </div>
+            <div class="guide-step">
+                <div class="guide-number">3</div>
+                <div><strong>Ask</strong><span>Enter a question and review grounded answers.</span></div>
+            </div>
+            <div class="guide-step">
+                <div class="guide-number">4</div>
+                <div><strong>Follow up</strong><span>Use <em>Insert reply</em> to quote an answer.</span></div>
+            </div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-        for message in st.session_state.messages:
-            render_message(message)
-
-        with st.form("chat_question_form", clear_on_submit=True):
-            chat_question = st.text_area(
-                "Question",
-                placeholder="Ask about fault codes, maintenance, troubleshooting, or source pages...",
-                height=92,
-                label_visibility="collapsed",
-            )
-            submitted_chat = st.form_submit_button(
-                "Ask question",
-                type="primary",
-                width="stretch",
-            )
-
-        if submitted_chat and chat_question.strip():
-            question_to_process = chat_question.strip()
-
-with right_col:
+with st.container(border=True):
     st.markdown(
         """
-        <div class="hero">
-            <h1>Traceable technical support</h1>
-            <p>Use the side panels to manage documents, inspect status, run exact fault-code lookup, and start common queries.</p>
-            <div class="flow-grid">
-                <div class="flow-step"><strong>1. Upload</strong><span>Add manuals from the left sidebar.</span></div>
-                <div class="flow-step"><strong>2. Ask</strong><span>Keep the conversation in the middle.</span></div>
-                <div class="flow-step"><strong>3. Verify</strong><span>Check citations inside each answer.</span></div>
-            </div>
+        <div class="conversation-header">
+            <strong>Query and response</strong>
+            <span>Ask a grounded question below. Upload manuals from the left sidebar or use starter prompts below.</span>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+    for i, message in enumerate(st.session_state.messages):
+        render_message(message, i)
+
+    # The textarea stays outside a form so the character counter can update while typing.
+    chat_question = st.text_area(
+        "Question",
+        placeholder="Ask about fault codes, maintenance, troubleshooting, or source pages...",
+        height=120,
+        label_visibility="collapsed",
+        key="chat_textarea",
+        max_chars=CHAT_CHARACTER_LIMIT,
+    )
+    if st.session_state.chat_input_notice:
+        st.markdown(
+            f"<div class='chat-input-notice'>{st.session_state.chat_input_notice}</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.button(
+        "Ask question",
+        type="primary",
+        width="stretch",
+        on_click=submit_chat_question,
+    )
+
+
+with st.container(border=True):
+    st.markdown("### Support tools")
+    st.caption("Use starter prompts or exact fault-code lookup to explore indexed evidence.")
 
     render_metric_cards(docs, mode, backend_online)
 
@@ -992,11 +1275,31 @@ with right_col:
         )
 
     with st.container(border=True):
-        st.markdown("### Starter prompts")
-        st.caption("Send one of these into the middle query workspace.")
-        for index, starter in enumerate(STARTER_QUESTIONS):
-            if st.button(starter, width="stretch", key=f"starter_{index}"):
-                question_to_process = starter
+        st.markdown(
+            """
+            <div class="starter-prompt-shell">
+                <div class="starter-prompt-header">
+                    <div>
+                        <div class="starter-prompt-kicker">Prompt library</div>
+                        <h3>Starter prompts</h3>
+                    </div>
+                    <span class="starter-prompt-badge">Demo ready</span>
+                </div>
+                <p>Click a focused technical question to test retrieval, citations, and refusal behavior.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        for row_start in range(0, len(STARTER_QUESTIONS), 2):
+            starter_cols = st.columns(2)
+            for offset, starter_col in enumerate(starter_cols):
+                index = row_start + offset
+                if index >= len(STARTER_QUESTIONS):
+                    continue
+                starter = STARTER_QUESTIONS[index]
+                with starter_col:
+                    if st.button(starter, width="stretch", key=f"starter_{index}"):
+                        question_to_process = starter
 
     with st.container(border=True):
         st.markdown("### Exact fault-code lookup")
@@ -1043,7 +1346,10 @@ with right_col:
         render_fault_lookup(st.session_state.fault_lookup_result)
 
 if question_to_process:
-    st.session_state.messages.append({"role": "user", "answer": question_to_process})
+    timestamp = time.strftime("%Y-%m-%d %H:%M")
+    st.session_state.messages.append(
+        {"role": "user", "answer": question_to_process, "timestamp": timestamp}
+    )
     with st.spinner("Retrieving evidence, checking source strength, and drafting a grounded answer..."):
         try:
             response = ask_question(question_to_process, backend_url, mode, top_k)
@@ -1058,6 +1364,12 @@ if question_to_process:
             }
 
     st.session_state.messages.append(
-        {"role": "assistant", "copyable": True, "show_metadata": True, **response}
+        {
+            "role": "assistant",
+            "copyable": True,
+            "show_metadata": True,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M"),
+            **response,
+        }
     )
     st.rerun()
