@@ -123,8 +123,8 @@ def test_chat_rejects_missing_or_invalid_input(client, payload):
     assert response.status_code == 422
 
 
-def test_general_mode_is_disabled_by_default(client):
-    """Verify general mode stays disabled by default."""
+def test_general_mode_is_enabled_by_default(client):
+    """Verify general mode can answer when explicitly selected."""
     response = client.post(
         "/chat",
         json={"question": "Explain inverter overloads generally.", "mode": "general"},
@@ -132,7 +132,10 @@ def test_general_mode_is_disabled_by_default(client):
     assert response.status_code == 200
     payload = response.json()
     assert payload["grounded"] is False
-    assert "ALLOW_GENERAL_KNOWLEDGE is false." in payload["warnings"]
+    assert payload["mode"] == "general"
+    assert payload["sources"] == []
+    assert "general knowledge" in " ".join(payload["warnings"]).lower()
+    assert "ALLOW_GENERAL_KNOWLEDGE is false." not in payload["warnings"]
 
 
 def test_fault_code_lookup_returns_exact_matches(

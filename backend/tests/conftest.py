@@ -15,7 +15,7 @@ def isolated_backend_state(tmp_path, monkeypatch):
     monkeypatch.setenv("EMBEDDING_PROVIDER", "hash")
     monkeypatch.setenv("LLM_PROVIDER", "mock")
     monkeypatch.setenv("SIMILARITY_THRESHOLD", "0.35")
-    monkeypatch.setenv("ALLOW_GENERAL_KNOWLEDGE", "false")
+    monkeypatch.setenv("ALLOW_GENERAL_KNOWLEDGE", "true")
 
     config = importlib.import_module("app.core.config")
     dependencies = importlib.import_module("app.core.dependencies")

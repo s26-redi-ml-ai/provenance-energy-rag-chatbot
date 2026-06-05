@@ -11,7 +11,12 @@ from app.rag.service import RAGService
 router = APIRouter(tags=["chat"])
 
 
-@router.post("/chat", response_model=ChatResponse)
+@router.post(
+    "/chat",
+    response_model=ChatResponse,
+    summary="Ask a grounded question",
+    description="Sends a question to the RAG pipeline and returns a grounded answer.",
+)
 def chat(
     request: ChatRequest,
     rag_service: Annotated[RAGService, Depends(get_rag_service)],
