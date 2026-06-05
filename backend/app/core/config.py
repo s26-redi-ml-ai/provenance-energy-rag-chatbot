@@ -95,5 +95,5 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Load settings once and reuse them across the running process."""
     settings = Settings()
-    logger.info("Active LLM provider: %s", settings.llm_provider)
+    logger.debug("Active LLM provider: %s", settings.llm_provider)
     return settings

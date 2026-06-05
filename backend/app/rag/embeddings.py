@@ -2,6 +2,7 @@
 
 import hashlib
 import math
+import os
 from abc import ABC, abstractmethod
 
 import httpx
@@ -54,7 +55,24 @@ class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
     """Embedding provider backed by a local SentenceTransformers model."""
 
     def __init__(self, model_name: str) -> None:
-        """Load a local SentenceTransformer model."""
+        """Load a local SentenceTransformer model without noisy progress output."""
+        os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+        os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
+        try:
+            from huggingface_hub.utils import disable_progress_bars
+
+            disable_progress_bars()
+        except (ImportError, AttributeError):
+            pass
+
+        try:
+            from transformers.utils import logging as transformers_logging
+
+            transformers_logging.disable_progress_bar()
+        except (ImportError, AttributeError):
+            pass
+
         from sentence_transformers import SentenceTransformer
 
         self.model = SentenceTransformer(model_name)
