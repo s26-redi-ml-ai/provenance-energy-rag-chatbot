@@ -6,6 +6,7 @@ import hashlib
 import html
 import json
 import os
+import pathlib
 import re
 import time
 from typing import Any
@@ -15,8 +16,6 @@ import streamlit as st
 
 DEFAULT_BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 MODES = ["document", "hybrid", "general"]
-CHAT_CHARACTER_LIMIT = 4000
-CHAT_MINIMUM_LENGTH = 2
 STARTER_QUESTIONS = [
     "What does fault code 07 mean?",
     "Which troubleshooting steps are listed for overload?",
@@ -386,43 +385,6 @@ st.markdown(
         line-height: 1.62 !important;
     }
 
-    [data-testid="stChatMessage"] [data-testid="stButton"] button {
-        width: 100% !important;
-        height: 30px !important;
-        min-height: 30px !important;
-        padding: 4px 8px !important;
-        border: 1px solid rgba(128, 128, 128, 0.22) !important;
-        border-radius: 7px !important;
-        background: rgba(18, 138, 107, 0.10) !important;
-        color: #128a6b !important;
-        box-shadow: none !important;
-        font-size: 11px !important;
-        font-weight: 700 !important;
-        line-height: 1 !important;
-    }
-
-    [data-testid="stChatMessage"] [data-testid="stButton"] button:hover {
-        border-color: rgba(18, 138, 107, 0.34) !important;
-        background: rgba(18, 138, 107, 0.15) !important;
-        color: #0f6e56 !important;
-    }
-
-    [data-testid="stChatMessage"] [data-testid="stButton"] button p {
-        color: inherit !important;
-        font-size: 11px !important;
-        font-weight: 700 !important;
-        line-height: 1 !important;
-        margin: 0 !important;
-    }
-
-    .chat-input-notice {
-        margin: 0.15rem 0 0.45rem;
-        color: var(--danger);
-        font-size: 0.76rem;
-        font-weight: 700;
-        line-height: 1.4;
-    }
-
     [data-testid="stMarkdownContainer"] h4 {
         font-size: 0.78rem !important;
         font-weight: 800 !important;
@@ -436,12 +398,6 @@ st.markdown(
         border-radius: var(--radius-sm) !important;
         box-shadow: none !important;
         border: 1px solid var(--border) !important;
-        background: var(--surface-0) !important;
-    }
-
-    [data-testid="stChatInput"] {
-        border: 1px solid var(--border-strong) !important;
-        border-radius: var(--radius-md) !important;
         background: var(--surface-0) !important;
     }
 
@@ -483,185 +439,152 @@ st.markdown(
         margin: 0.65rem 0 1rem;
     }
 
-    .starter-prompt-shell {
-        border: 1px solid rgba(18, 138, 107, 0.18);
-        border-radius: var(--radius-md);
-        background:
-            linear-gradient(135deg, rgba(18, 138, 107, 0.105), rgba(37, 99, 235, 0.055)),
-            var(--surface-0);
-        padding: 0.95rem 1rem;
-        margin-bottom: 0.8rem;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.045);
-    }
-
-    .starter-prompt-header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 0.75rem;
-        margin-bottom: 0.45rem;
-    }
-
-    .starter-prompt-kicker {
-        color: var(--brand);
-        font-size: 0.72rem;
-        font-weight: 800;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
-        margin-bottom: 0.18rem;
-    }
-
-    .starter-prompt-shell h3 {
-        color: var(--ink);
-        font-size: 1rem;
-        font-weight: 850;
-        line-height: 1.2;
-        margin: 0;
-    }
-
-    .starter-prompt-shell p {
-        color: var(--muted);
-        font-size: 0.82rem;
-        line-height: 1.5;
-        margin: 0;
-    }
-
-    .starter-prompt-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        white-space: nowrap;
-        border-radius: 999px;
-        border: 1px solid rgba(37, 99, 235, 0.22);
-        background: rgba(37, 99, 235, 0.10);
-        color: var(--blue);
-        font-size: 0.7rem;
-        font-weight: 800;
-        padding: 4px 9px;
-    }
-
     .copy-help {
         color: var(--faint);
         font-size: 0.76rem;
         margin: -0.2rem 0 0.7rem;
     }
 
-    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] {
-        background: #128a6b !important;
-        border: 1px solid #128a6b !important;
-        color: #ffffff !important;
-        box-shadow: 0 8px 18px rgba(18, 138, 107, 0.18) !important;
+    button[kind="primary"] {
+        background: var(--brand) !important;
+        border: none !important;
+        border-radius: var(--radius-sm) !important;
+        font-weight: 800 !important;
     }
 
-    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"]:hover {
-        background: #0f6e56 !important;
-        border-color: #0f6e56 !important;
-        color: #ffffff !important;
-        box-shadow: 0 10px 22px rgba(15, 110, 86, 0.22) !important;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] p {
-        color: #ffffff !important;
-    }
-
-    .guide-panel {
-        background: linear-gradient(135deg, rgba(18, 138, 107, 0.07), rgba(37, 99, 235, 0.035));
-        border: 1px solid var(--border);
-        border-radius: var(--radius-md);
-        padding: 1.05rem 1.15rem;
-        margin-bottom: 1rem;
-    }
-
-    .guide-title {
-        color: var(--brand-dark);
-        font-size: 1rem;
-        font-weight: 800;
-        margin-bottom: 0.35rem;
-    }
-
-    .guide-subtitle {
-        color: var(--muted);
-        font-size: 0.86rem;
-        line-height: 1.45;
-        margin-bottom: 0.85rem;
-    }
-
-    .guide-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 0.85rem;
-    }
-
-    .guide-step {
-        display: grid;
-        grid-template-columns: 34px minmax(0, 1fr);
-        gap: 0.65rem;
-        min-width: 0;
-    }
-
-    .guide-number {
-        width: 34px;
-        height: 34px;
-        border-radius: 999px;
-        background: var(--brand-soft);
-        color: var(--brand);
-        border: 1px solid rgba(18, 138, 107, 0.24);
-        display: inline-flex;
+    /* 1. Typing indicator */
+    .typing-indicator {
+        display: flex;
         align-items: center;
-        justify-content: center;
-        font-weight: 800;
-        line-height: 1;
-        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+        gap: 5px;
+        padding: 0.6rem 0;
+    }
+    .typing-indicator span {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--brand);
+        animation: bounce 1.2s infinite ease-in-out;
+    }
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+        0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; }
+        40% { transform: scale(1); opacity: 1; }
     }
 
-    .guide-step strong {
-        display: block;
-        font-size: 0.88rem;
-        line-height: 1.25;
-        margin-bottom: 0.22rem;
-    }
-
-    .guide-step span {
-        color: var(--muted);
-        display: block;
-        font-size: 0.8rem;
-        line-height: 1.45;
-    }
-
-    .message-timestamp {
+    /* 2. Empty chat state */
+    .chat-empty-state {
+        text-align: center;
+        padding: 2.5rem 1rem;
         color: var(--faint);
-        font-size: 0.74rem;
-        line-height: 1.3;
-        padding-top: 0.45rem;
-        text-align: right;
-        white-space: nowrap;
+    }
+    .chat-empty-state .empty-icon {
+        font-size: 2.4rem;
+        margin-bottom: 0.65rem;
+    }
+    .chat-empty-state h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--muted);
+        margin: 0 0 0.3rem;
+    }
+    .chat-empty-state p {
+        font-size: 0.84rem;
+        color: var(--faint);
+        margin: 0;
     }
 
-    [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] {
-        min-width: 0;
+    /* 3. Confidence border on chat bubbles */
+    [data-testid="stChatMessage"]:has(.confidence-high) {
+        border-left: 4px solid var(--brand) !important;
+    }
+    [data-testid="stChatMessage"]:has(.confidence-medium) {
+        border-left: 4px solid var(--blue) !important;
+    }
+    [data-testid="stChatMessage"]:has(.confidence-low) {
+        border-left: 4px solid var(--amber) !important;
+    }
+    [data-testid="stChatMessage"]:has(.confidence-error) {
+        border-left: 4px solid var(--danger) !important;
+    }
+    .confidence-marker { display: none; }
+
+    /* 4. Fade-in animation on new messages */
+    [data-testid="stChatMessage"] {
+        animation: fadeSlideIn 0.25s ease-out;
+    }
+    @keyframes fadeSlideIn {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 5. Character count hint */
+    .char-count {
+        font-size: 0.74rem;
+        color: var(--faint);
+        text-align: right;
+        margin-top: -0.3rem;
+        margin-bottom: 0.4rem;
+    }
+    .char-count.near-limit { color: var(--amber); }
+
+    /* 6. Collapsible hero toggle */
+    .hero-toggle {
+        font-size: 0.76rem;
+        color: var(--brand);
+        cursor: pointer;
+        font-weight: 700;
+        text-align: right;
+        display: block;
+        margin-top: 0.5rem;
+    }
+
+    /* 7. Source cards styling */
+    .source-card {
+        background: var(--surface-0);
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--brand);
+        border-radius: var(--radius-md);
+        padding: 0.85rem 1rem;
+        margin: 0.5rem 0;
+    }
+    .source-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.5rem;
+        margin-bottom: 0.3rem;
+    }
+    .source-card-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--ink);
         overflow-wrap: anywhere;
     }
-
-    [data-testid="stChatMessage"] button {
-        min-width: 112px;
-        white-space: nowrap;
+    .source-card-meta {
+        font-size: 0.74rem;
+        color: var(--faint);
+        margin-bottom: 0.4rem;
+    }
+    .source-card-snippet {
+        font-size: 0.8rem;
+        color: var(--muted);
+        line-height: 1.5;
+        border-top: 1px solid var(--border);
+        padding-top: 0.4rem;
+        margin-top: 0.4rem;
     }
 
-    @media (max-width: 980px) {
-        .guide-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-    }
-
-    @media (max-width: 640px) {
-        .guide-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .message-timestamp {
-            text-align: left;
-            white-space: normal;
-        }
+    /* 8. Sticky chat input */
+    .sticky-input-wrapper {
+        position: sticky;
+        bottom: 0;
+        background: var(--surface-0);
+        padding: 0.75rem 0 0.25rem;
+        border-top: 1px solid var(--border);
+        margin-top: 0.5rem;
+        z-index: 10;
     }
     </style>
     """,
@@ -788,8 +711,12 @@ def init_state() -> None:
     st.session_state.setdefault("fault_lookup_error", "")
     st.session_state.setdefault("last_upload_result", None)
     st.session_state.setdefault("pending_question", None)
-    st.session_state.setdefault("chat_textarea", "")
-    st.session_state.setdefault("chat_input_notice", "")
+    st.session_state.setdefault("current_session_name", "")
+
+
+
+CHAT_HISTORY_DIR = pathlib.Path("chat_history")
+CHAT_HISTORY_DIR.mkdir(exist_ok=True)
 
 
 def fetch_and_cache_documents(backend_url: str, force_refresh: bool = False) -> list:
@@ -799,8 +726,55 @@ def fetch_and_cache_documents(backend_url: str, force_refresh: bool = False) -> 
         try:
             st.session_state.document_cache = api_get("/documents", backend_url)
             st.session_state.last_fetch_time = current_time
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
             if not st.session_state.document_cache:
+                st.warning(f"Could not load indexed documents: {api_error_message(exc)}")
+                return []
+    return st.session_state.document_cache
+
+
+def list_chat_sessions() -> list[str]:
+    """Return saved session names sorted by most recent."""
+    files = sorted(CHAT_HISTORY_DIR.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True)
+    return [f.stem for f in files]
+
+
+def save_chat_session(name: str, messages: list) -> None:
+    """Save current messages to a JSON file."""
+    if not name.strip():
+        return
+    safe_name = re.sub(r"[^\w\s-]", "", name.strip()).replace(" ", "_")
+    path = CHAT_HISTORY_DIR / f"{safe_name}.json"
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(messages, f, ensure_ascii=False, indent=2)
+
+
+def load_chat_session(name: str) -> list:
+    """Load messages from a saved session JSON file."""
+    path = CHAT_HISTORY_DIR / f"{name}.json"
+    if path.exists():
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+
+def delete_chat_session(name: str) -> None:
+    """Delete a saved session file."""
+    path = CHAT_HISTORY_DIR / f"{name}.json"
+    if path.exists():
+        path.unlink()
+
+
+
+    """Cache indexed-document listings briefly to avoid unnecessary API calls."""
+    current_time = time.time()
+    if force_refresh or (current_time - st.session_state.last_fetch_time > 8.0):
+        try:
+            st.session_state.document_cache = api_get("/documents", backend_url)
+            st.session_state.last_fetch_time = current_time
+        except Exception as exc:  # noqa: BLE001
+            if not st.session_state.document_cache:
+                st.warning(f"Could not load indexed documents: {api_error_message(exc)}")
                 return []
     return st.session_state.document_cache
 
@@ -809,12 +783,13 @@ def render_metric_cards(documents: list[dict[str, Any]], mode: str, backend_onli
     """Render quick dashboard cards for demo readability."""
     document_count, chunk_count = summarize_documents(documents)
     backend_label = "Online" if backend_online else "Offline"
+    backend_color = "var(--brand)" if backend_online else "var(--danger)"
     st.markdown(
         f"""
         <div class="metric-grid">
             <div class="metric-card"><strong>{document_count}</strong><span>indexed manuals</span></div>
             <div class="metric-card"><strong>{chunk_count}</strong><span>searchable chunks</span></div>
-            <div class="metric-card"><strong>{backend_label}</strong><span>{mode} mode active</span></div>
+            <div class="metric-card"><strong style="color:{backend_color}">{backend_label}</strong><span>{mode} mode active</span></div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -863,27 +838,24 @@ def render_sources(sources: list[dict[str, Any]]) -> None:
 
             st.markdown(
                 f"""
-                <div class="evidence-card">
-                    <div class="evidence-header">
-                        <span class="evidence-title">{source_id}: {filename}</span>
+                <div class="source-card">
+                    <div class="source-card-header">
+                        <span class="source-card-title">{source_id}: {filename}</span>
                         <span class="score-pill">{score}% match</span>
                     </div>
-                    <div class="evidence-meta">Page {page} | Section {section} | Chunk {chunk_id}</div>
+                    <div class="source-card-meta">Page {page} &nbsp;·&nbsp; Section {section} &nbsp;·&nbsp; Chunk {chunk_id}</div>
+                    {f'<div class="source-card-snippet">{snippet}</div>' if snippet else ''}
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-
-            if snippet:
-                st.caption("Supporting snippet")
-                st.info(snippet)
 
             with st.expander(f"Full evidence chunk ({chunk_id})", expanded=False):
                 st.write(sanitize_text(source.get("full_text")))
 
 
 def render_copy_answer_button(answer: str, key_seed: str) -> None:
-    """Render a compact clipboard button for assistant answers."""
+    '''Render a small clipboard button and insert reply button for assistant answers.'''
     if not answer:
         return
 
@@ -892,94 +864,78 @@ def render_copy_answer_button(answer: str, key_seed: str) -> None:
     answer_json = json.dumps(answer)
     st.iframe(
         f"""
-        <style>
-            html, body {{
-                margin: 0;
-                padding: 0;
-                overflow: hidden;
-                background: transparent;
-            }}
-        </style>
-        <button id="{escaped_id}" type="button"
-            style="
-                width:100%;
-                height:30px;
-                min-height:30px;
-                box-sizing:border-box;
-                display:inline-flex;
-                align-items:center;
-                justify-content:center;
-                border:1px solid rgba(128,128,128,0.22);
-                border-radius:7px;
-                background:rgba(18,138,107,0.10);
-                color:#128a6b;
-                cursor:pointer;
-                font-family:DM Sans, Segoe UI, sans-serif;
-                font-size:11px;
-                font-weight:700;
-                line-height:1;
-                padding:4px 8px;
-            ">
-            Copy Answer
-        </button>
+        <div style="display:flex;align-items:center;gap:8px;margin:0 0 8px 0;">
+            <button id="{escaped_id}" type="button"
+                style="
+                    border:1px solid rgba(128,128,128,0.24);
+                    border-radius:8px;
+                    background:rgba(18,138,107,0.10);
+                    color:#128a6b;
+                    cursor:pointer;
+                    font-family:DM Sans, Segoe UI, sans-serif;
+                    font-size:12px;
+                    font-weight:700;
+                    padding:6px 10px;
+                ">
+                Copy answer
+            </button>
+            <span id="{escaped_id}-status"
+                style="font-family:DM Sans, Segoe UI, sans-serif;font-size:12px;color:#128a6b;">
+            </span>
+        </div>
         <script>
         const button = document.getElementById("{escaped_id}");
+        const status = document.getElementById("{escaped_id}-status");
         button.addEventListener("click", async () => {{
             try {{
                 await navigator.clipboard.writeText({answer_json});
-                button.textContent = "Copied";
-                setTimeout(() => button.textContent = "Copy Answer", 1400);
+                status.textContent = "Copied";
+                setTimeout(() => status.textContent = "", 1600);
             }} catch (error) {{
-                button.textContent = "Failed";
-                setTimeout(() => button.textContent = "Copy Answer", 1400);
+                status.textContent = "Copy failed";
             }}
         }});
         </script>
         """,
-        height=32,
+        height=42,
     )
 
 
-def render_message(message: dict[str, Any], index: int) -> None:
-    """Render one chat message plus trust labels, copy action, and citations.
 
-    Args:
-        message: message dict from session_state
-        index: position of the message in the conversation list
-    """
+
+def render_message(message: dict[str, Any], index: int = 0) -> None:
+    """Render one chat message plus trust labels, copy action, and citations."""
     role = sanitize_text(message.get("role"), "assistant")
-    timestamp = sanitize_text(message.get("timestamp"), time.strftime("%Y-%m-%d %H:%M"))
+    confidence = sanitize_text(message.get("confidence"), "")
+    conf_marker = ""
+    if role == "assistant" and confidence:
+        c = confidence.lower()
+        if "high" in c:
+            conf_marker = "<span class='confidence-marker confidence-high'></span>"
+        elif "med" in c:
+            conf_marker = "<span class='confidence-marker confidence-medium'></span>"
+        elif "error" in c:
+            conf_marker = "<span class='confidence-marker confidence-error'></span>"
+        else:
+            conf_marker = "<span class='confidence-marker confidence-low'></span>"
+
     with st.chat_message(role):
         answer = sanitize_text(message.get("answer", ""))
-
         st.markdown(
-            f"<span class='chat-role-marker chat-role-{role}'></span>",
+            f"<span class='chat-role-marker chat-role-{role}'></span>{conf_marker}",
             unsafe_allow_html=True,
         )
-        st.markdown(answer)
+        st.write(answer)
 
-        # Action buttons and timestamp
-        is_response = bool(message.get("copyable", False))
-        key_seed = f"{index}-{hashlib.sha1(answer.encode('utf-8')).hexdigest()[:10]}"
-        if is_response:
-            copy_col, insert_col, time_col = st.columns([0.22, 0.22, 0.56])
-            with copy_col:
+        if ts := message.get("timestamp"):
+            st.caption(ts)
+
+        if message["role"] == "assistant":
+            is_response = bool(message.get("copyable", False))
+            if is_response:
+                key_seed = f"{index}-{hashlib.sha1(answer.encode('utf-8')).hexdigest()[:10]}"
                 render_copy_answer_button(answer, key_seed)
-            if insert_col.button("Insert Reply", key=f"quote-{key_seed}", width="stretch"):
-                # Write directly into the chat textarea widget state so it appears immediately.
-                st.session_state["chat_textarea"] = f"> {answer}\n\n"
-            time_col.markdown(
-                f"<div class='message-timestamp'>{timestamp}</div>",
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                f"<div class='message-timestamp'>{timestamp}</div>",
-                unsafe_allow_html=True,
-            )
 
-        # Metadata, warnings, and sources for assistant messages
-        if role == "assistant":
             if message.get("show_metadata", is_response):
                 render_trust_summary(message)
 
@@ -1017,7 +973,7 @@ def render_fault_lookup(result: dict[str, Any] | None) -> None:
             }
         )
 
-    st.dataframe(rows, width="stretch", hide_index=True)
+    st.dataframe(rows, use_container_width=True, hide_index=True)
 
     for match in matches:
         label = (
@@ -1032,30 +988,6 @@ def render_fault_lookup(result: dict[str, Any] | None) -> None:
                 f"matched: {', '.join(match.get('matched_terms', []))}"
             )
             st.write(sanitize_text(match.get("full_text")))
-
-
-def queue_starter_question(question: str) -> None:
-    """Store a starter question so the normal chat pipeline can process it."""
-    st.session_state.pending_question = question
-
-
-def submit_chat_question() -> None:
-    """Queue the typed chat question and clear the input after a valid send."""
-    question = sanitize_text(st.session_state.get("chat_textarea", "")).strip()
-    if not question:
-        st.session_state.chat_input_notice = "Type a question before sending."
-        return
-    if len(question) < CHAT_MINIMUM_LENGTH:
-        st.session_state.chat_input_notice = "Use at least 2 characters before sending."
-        return
-    if len(question) > CHAT_CHARACTER_LIMIT:
-        st.session_state.chat_input_notice = (
-            f"Keep the question within {CHAT_CHARACTER_LIMIT:,} characters."
-        )
-        return
-    st.session_state.chat_input_notice = ""
-    st.session_state.pending_question = question
-    st.session_state.chat_textarea = ""
 
 
 init_state()
@@ -1149,6 +1081,7 @@ with st.sidebar:
             f"Indexed {result.get('filename')} "
             f"with {result.get('chunks_created', 'N/A')} chunks."
         )
+        st.session_state.last_upload_result = None
 
     st.divider()
 
@@ -1170,16 +1103,72 @@ with st.sidebar:
     if not docs:
         st.caption("No manuals indexed yet. Upload a document to begin.")
     else:
-        for doc in docs:
-            st.markdown(
-                f"""
-                <div class='doc-item'>
-                    <strong>{sanitize_text(doc.get('filename'))}</strong>
-                    <div>{doc.get('chunks_created', 0)} chunks | {doc.get('status', 'indexed')}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+        with st.expander(f"View {document_count} indexed manual(s)", expanded=False):
+            for doc in docs:
+                st.markdown(
+                    f"""
+                    <div class='doc-item'>
+                        <strong>{sanitize_text(doc.get('filename'))}</strong>
+                        <div>{doc.get('chunks_created', 0)} chunks | {doc.get('status', 'indexed')}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+    st.divider()
+    st.markdown("### Chat history")
+
+    session_name = st.text_input(
+        "Session name",
+        value=st.session_state.current_session_name,
+        placeholder="e.g. Fault code review",
+        key="session_name_input",
+        label_visibility="collapsed",
+    )
+
+    col_save, col_new = st.columns(2)
+    with col_save:
+        if st.button("Save session", width="stretch", key="save_session_btn"):
+            if session_name.strip():
+                save_chat_session(session_name, st.session_state.messages)
+                st.session_state.current_session_name = session_name.strip()
+                st.success("Session saved.")
+            else:
+                st.warning("Enter a session name first.")
+
+    with col_new:
+        if st.button("New session", width="stretch", key="new_session_btn"):
+            if st.session_state.messages and st.session_state.current_session_name:
+                save_chat_session(st.session_state.current_session_name, st.session_state.messages)
+            st.session_state.messages = []
+            st.session_state.current_session_name = ""
+            st.session_state.fault_lookup_result = None
+            st.session_state.fault_lookup_error = ""
+            st.session_state.pending_question = None
+            st.rerun()
+
+    saved_sessions = list_chat_sessions()
+    if saved_sessions:
+        selected_session = st.selectbox(
+            "Load a previous session",
+            options=["— select —"] + saved_sessions,
+            key="load_session_select",
+        )
+        col_load, col_del = st.columns(2)
+        with col_load:
+            if st.button("Load", width="stretch", key="load_session_btn"):
+                if selected_session != "— select —":
+                    st.session_state.messages = load_chat_session(selected_session)
+                    st.session_state.current_session_name = selected_session
+                    st.session_state.fault_lookup_result = None
+                    st.session_state.fault_lookup_error = ""
+                    st.rerun()
+        with col_del:
+            if st.button("Delete", width="stretch", key="delete_session_btn"):
+                if selected_session != "— select —":
+                    delete_chat_session(selected_session)
+                    st.success(f"Deleted '{selected_session}'.")
+                    st.rerun()
 
     if st.button("Clear chat session", width="stretch"):
         st.session_state.messages = []
@@ -1191,76 +1180,70 @@ with st.sidebar:
 question_to_process = st.session_state.pending_question
 st.session_state.pending_question = None
 
-# Top Getting Started banner (moved from the right column)
-st.markdown(
-    """
-    <div class="guide-panel">
-        <div class="guide-title">Getting Started</div>
-        <div class="guide-subtitle">Quick steps to upload, index, and query your manuals. You can insert a reply as a follow-up question.</div>
-        <div class="guide-grid">
-            <div class="guide-step">
-                <div class="guide-number">1</div>
-                <div><strong>Upload</strong><span>Add manuals from the sidebar.</span></div>
-            </div>
-            <div class="guide-step">
-                <div class="guide-number">2</div>
-                <div><strong>Index</strong><span>Click <em>Index document</em> and wait for success.</span></div>
-            </div>
-            <div class="guide-step">
-                <div class="guide-number">3</div>
-                <div><strong>Ask</strong><span>Enter a question and review grounded answers.</span></div>
-            </div>
-            <div class="guide-step">
-                <div class="guide-number">4</div>
-                <div><strong>Follow up</strong><span>Use <em>Insert reply</em> to quote an answer.</span></div>
-            </div>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+st.session_state.setdefault("show_hero", True)
 
-with st.container(border=True):
+if st.session_state.show_hero:
     st.markdown(
         """
-        <div class="conversation-header">
-            <strong>Query and response</strong>
-            <span>Ask a grounded question below. Upload manuals from the left sidebar or use starter prompts below.</span>
+        <div class="hero">
+            <strong>Getting Started</strong>
+            <p>Quick steps to upload, index, and query your manuals.</p>
+            <div class="flow-grid" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
+                <div class="flow-step"><strong>1. Upload</strong><span>Add manuals from the sidebar.</span></div>
+                <div class="flow-step"><strong>2. Index</strong><span>Click <em>Index document</em> and wait for success.</span></div>
+                <div class="flow-step"><strong>3. Ask</strong><span>Enter a question and review grounded answers.</span></div>
+                <div class="flow-step"><strong>4. Load previous session</strong><span>Use <em>Chat history</em> in the sidebar to reload past conversations.</span></div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+    if st.button("Hide guide ▲", key="hide_hero"):
+        st.session_state.show_hero = False
+        st.rerun()
+else:
+    if st.button("Show guide ▼", key="show_hero_btn"):
+        st.session_state.show_hero = True
+        st.rerun()
 
-    for i, message in enumerate(st.session_state.messages):
-        render_message(message, i)
+chat_col, right_col = st.columns([1.55, 0.9], gap="large")
 
-    # The textarea stays outside a form so the character counter can update while typing.
-    st.text_area(
-        "Question",
-        placeholder="Ask about fault codes, maintenance, troubleshooting, or source pages...",
-        height=120,
-        label_visibility="collapsed",
-        key="chat_textarea",
-        max_chars=CHAT_CHARACTER_LIMIT,
-    )
-    if st.session_state.chat_input_notice:
+with chat_col:
+    with st.container(border=True):
         st.markdown(
-            f"<div class='chat-input-notice'>{st.session_state.chat_input_notice}</div>",
+            """
+            <div class="conversation-header">
+                <strong>Query and response</strong>
+                <span>Ask a grounded question below. Upload manuals from the left or use starter prompts on the right.</span>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
 
-    st.button(
-        "Ask question",
-        type="primary",
-        width="stretch",
-        on_click=submit_chat_question,
-    )
+        if not st.session_state.messages:
+            st.markdown(
+                """
+                <div class="chat-empty-state">
+                    <div class="empty-icon">⚡</div>
+                    <h3>No questions yet</h3>
+                    <p>Ask your first question below or pick a starter prompt on the right.</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            for index, message in enumerate(st.session_state.messages):
+                render_message(message, index)
 
+        chat_question = st.chat_input(
+            "Ask about fault codes, maintenance, troubleshooting, or source pages...",
+            key="chat_input_text",
+        )
 
-with st.container(border=True):
-    st.markdown("### Support tools")
-    st.caption("Use starter prompts or exact fault-code lookup to explore indexed evidence.")
+        if chat_question and chat_question.strip():
+            question_to_process = chat_question.strip()
 
+with right_col:
     render_metric_cards(docs, mode, backend_online)
 
     if not docs:
@@ -1275,31 +1258,11 @@ with st.container(border=True):
         )
 
     with st.container(border=True):
-        st.markdown(
-            """
-            <div class="starter-prompt-shell">
-                <div class="starter-prompt-header">
-                    <div>
-                        <div class="starter-prompt-kicker">Prompt library</div>
-                        <h3>Starter prompts</h3>
-                    </div>
-                    <span class="starter-prompt-badge">Demo ready</span>
-                </div>
-                <p>Click a focused technical question to test retrieval, citations, and refusal behavior.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        for row_start in range(0, len(STARTER_QUESTIONS), 2):
-            starter_cols = st.columns(2)
-            for offset, starter_col in enumerate(starter_cols):
-                index = row_start + offset
-                if index >= len(STARTER_QUESTIONS):
-                    continue
-                starter = STARTER_QUESTIONS[index]
-                with starter_col:
-                    if st.button(starter, width="stretch", key=f"starter_{index}"):
-                        question_to_process = starter
+        st.markdown("### Starter prompts")
+        st.caption("Send one of these into the middle query workspace.")
+        for index, starter in enumerate(STARTER_QUESTIONS):
+            if st.button(starter, width="stretch", key=f"starter_{index}"):
+                question_to_process = starter
 
     with st.container(border=True):
         st.markdown("### Exact fault-code lookup")
@@ -1346,30 +1309,37 @@ with st.container(border=True):
         render_fault_lookup(st.session_state.fault_lookup_result)
 
 if question_to_process:
-    timestamp = time.strftime("%Y-%m-%d %H:%M")
-    st.session_state.messages.append(
-        {"role": "user", "answer": question_to_process, "timestamp": timestamp}
-    )
-    with st.spinner("Retrieving evidence, checking source strength, and drafting a grounded answer..."):
-        try:
-            response = ask_question(question_to_process, backend_url, mode, top_k)
-        except Exception as exc:  # noqa: BLE001
-            response = {
-                "answer": "The backend could not process that request.",
-                "grounded": False,
-                "confidence": "error",
-                "mode": mode,
-                "sources": [],
-                "warnings": [api_error_message(exc)],
-            }
+    message_time = time.strftime("%d.%m.%Y %H:%M")
+    st.session_state.messages.append({"role": "user", "answer": question_to_process, "timestamp": message_time})
+
+    with chat_col:
+        typing_placeholder = st.empty()
+        with typing_placeholder:
+            with st.chat_message("assistant"):
+                st.markdown(
+                    """
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+    try:
+        response = ask_question(question_to_process, backend_url, mode, top_k)
+    except Exception as exc:  # noqa: BLE001
+        response = {
+            "answer": "The backend could not process that request.",
+            "grounded": False,
+            "confidence": "error",
+            "mode": mode,
+            "sources": [],
+            "warnings": [api_error_message(exc)],
+        }
 
     st.session_state.messages.append(
-        {
-            "role": "assistant",
-            "copyable": True,
-            "show_metadata": True,
-            "timestamp": time.strftime("%Y-%m-%d %H:%M"),
-            **response,
-        }
+        {"role": "assistant", "copyable": True, "show_metadata": True, "timestamp": message_time, **response}
     )
+    if st.session_state.current_session_name:
+        save_chat_session(st.session_state.current_session_name, st.session_state.messages)
     st.rerun()
