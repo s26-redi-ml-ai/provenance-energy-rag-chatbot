@@ -1,10 +1,13 @@
 """Environment-backed application settings for the backend."""
 
+import logging
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -35,7 +38,7 @@ class Settings(BaseSettings):
     chunk_overlap: int = 150
     top_k: int = 5
     similarity_threshold: float = 0.35
-    allow_general_knowledge: bool = False
+    allow_general_knowledge: bool = True
 
     response_cache_enabled: bool = True
     response_cache_ttl_seconds: int = 604800
@@ -92,6 +95,5 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Load settings once and reuse them across the running process."""
     settings = Settings()
-    # ADD THIS LINE FOR DEBUGGING:
-    print(f"\n🚀 DEBUG: Active LLM Provider is set to -> {settings.llm_provider}\n")
+    logger.debug("Active LLM provider: %s", settings.llm_provider)
     return settings

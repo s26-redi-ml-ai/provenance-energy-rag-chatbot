@@ -24,6 +24,7 @@ For the MVP, the system is successful when it can:
 ## Table of Contents
 
 - [Project Overview](#project-overview)
+- [App Screenshots](#app-screenshots)
 - [Problem Statement](#problem-statement)
 - [Dataset](#dataset)
 - [Key Features](#key-features)
@@ -66,6 +67,24 @@ This project provides a trustworthy technical-support assistant that can:
 
 The goal is not just to "chat with a PDF". The goal is to build a transparent document question-answering system that can be extended toward real-world technical support.
 
+## App Screenshots
+
+The screenshots below show the main Streamlit interface and the core workflows used in the demo.
+
+### Main Interface
+
+![Energy RAG Support main interface](docs/assets/app-screenshot.png)
+
+### Core Workflows
+
+| Upload and Indexing | Chat With Sources |
+| --- | --- |
+| ![Upload and indexing workflow](docs/assets/upload-and-indexing.png) | ![Chat answer with source evidence](docs/assets/chat-with-sources.png) |
+
+| Fault-Code Lookup |
+| --- |
+| ![Fault-code lookup table](docs/assets/fault-code-lookup.png) |
+
 ## Problem Statement
 
 Traditional manual search is slow and error-prone. Engineers may spend significant time looking for one fault code across large manufacturer PDFs or maintenance documents.
@@ -99,7 +118,7 @@ The system extracts text from these documents, splits the text into chunks, embe
 - OpenAI-compatible LLM provider support.
 - Mock generator and hash embeddings for local tests.
 - Document mode, general mode, and hybrid mode.
-- Default `ALLOW_GENERAL_KNOWLEDGE=false` for safer document-grounded behavior.
+- Default `ALLOW_GENERAL_KNOWLEDGE=true` so explicit General mode can answer, while Document mode remains strictly source-grounded.
 - Citation validation.
 - Exact fault-code lookup endpoint and table view.
 - Local response cache to reduce repeated LLM API calls.
@@ -301,7 +320,7 @@ CHUNK_OVERLAP=150
 TOP_K=5
 SIMILARITY_THRESHOLD=0.35
 
-ALLOW_GENERAL_KNOWLEDGE=false
+ALLOW_GENERAL_KNOWLEDGE=true
 
 RESPONSE_CACHE_ENABLED=true
 RESPONSE_CACHE_TTL_SECONDS=604800
@@ -605,7 +624,7 @@ The frontend displays this information as evidence cards and expandable source d
 The system includes several safeguards:
 
 - Document mode is the default.
-- General knowledge is disabled by default through `ALLOW_GENERAL_KNOWLEDGE=false`.
+- General mode is enabled by default through `ALLOW_GENERAL_KNOWLEDGE=true`, but Document mode still refuses answers without retrieved evidence.
 - If retrieval returns no strong evidence, the assistant refuses.
 - Retrieved chunks are filtered using a similarity threshold.
 - The prompt instructs the LLM to answer only from provided context.

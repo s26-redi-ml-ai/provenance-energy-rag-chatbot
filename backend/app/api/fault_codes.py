@@ -11,7 +11,12 @@ from app.rag.service import RAGService
 router = APIRouter(prefix="/fault-codes", tags=["fault-codes"])
 
 
-@router.post("/lookup", response_model=FaultCodeLookupResponse)
+@router.post(
+    "/lookup",
+    response_model=FaultCodeLookupResponse,
+    summary="Lookup a fault code",
+    description="Searches indexed documents for exact fault code matches without calling the LLM.",
+)
 def lookup_fault_code(
     request: FaultCodeLookupRequest,
     rag_service: Annotated[RAGService, Depends(get_rag_service)],
