@@ -204,3 +204,9 @@ def test_fault_code_lookup_handles_suspicious_input_without_matches(client, susp
     assert response.status_code == 200
     payload = response.json()
     assert payload["matches"] == []
+
+
+def test_chat_request_rejects_short_question(client):
+    """Verify that a question under 2 characters is rejected."""
+    response = client.post("/chat", json={"question": "A", "mode": "document"})
+    assert response.status_code == 422

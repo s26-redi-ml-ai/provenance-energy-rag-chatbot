@@ -14,9 +14,7 @@ _QUIET_LOGGERS = {
     "watchfiles": logging.WARNING,
 }
 
-_WARNING_PATTERNS_TO_HIDE = (
-    r".*unauthenticated requests to the HF Hub.*",
-)
+_WARNING_PATTERNS_TO_HIDE = (r".*unauthenticated requests to the HF Hub.*",)
 
 
 def configure_logging() -> None:
