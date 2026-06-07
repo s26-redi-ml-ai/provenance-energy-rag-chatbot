@@ -2,7 +2,9 @@ import csv
 import logging
 from pathlib import Path
 
+import pytesseract
 from docx import Document as DocxDocument
+from pdf2image import convert_from_path
 from pypdf import PdfReader
 
 from app.rag.types import LoadedText
@@ -63,9 +65,37 @@ def _load_pdf(path: Path) -> list[LoadedText]:
         if text:
             pages.append(LoadedText(text=text, page=index))
     
+    # If standard text extraction fails, execute the OCR fallback loop
     if not pages:
-        raise DocumentLoadingError("No extractable text found in PDF.")
+        logger.warning("Standard PDF parsing yielded no text. Falling back to OCR processing...")
+        try:
+            pages = _execute_pdf_ocr(path)
+        except Exception as ocr_exc:
+            logger.exception("OCR fallback extraction failed for %s", path.name)
+            raise DocumentLoadingError(
+                "No extractable text found, and OCR fallback processing failed."
+            ) from ocr_exc
+
+    if not pages:
+        raise DocumentLoadingError("No extractable text found in PDF even after OCR fallback.")
+        
     return pages
+
+def _execute_pdf_ocr(path: Path) -> list[LoadedText]:
+    """Convert PDF pages into images and extract text using pytesseract OCR."""
+    ocr_pages: list[LoadedText] = []
+    try:
+        # Convert PDF pages to PIL images
+        images = convert_from_path(str(path))
+        for index, image in enumerate(images, start=1):
+            extracted_text = pytesseract.image_to_string(image)
+            text = clean_text(extracted_text or "")
+            if text:
+                ocr_pages.append(LoadedText(text=text, page=index))
+    except Exception as e:
+        logger.error("Failed to run OCR on document %s: %s", path.name, str(e))
+        raise e
+    return ocr_pages
 
 def _load_docx(path: Path) -> list[LoadedText]:
     document = DocxDocument(str(path))
