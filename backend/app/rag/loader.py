@@ -1,6 +1,3 @@
-"""Document text extraction for PDF, DOCX, TXT, Markdown, and OCR fallback."""
-
-import logging
 from pathlib import Path
 
 from docx import Document as DocxDocument
@@ -8,10 +5,6 @@ from pypdf import PdfReader
 
 from app.rag.types import LoadedText
 from app.utils.text_cleaning import clean_text, strip_markdown
-
-logger = logging.getLogger(__name__)
-
-_SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".markdown"}
 
 
 class DocumentLoadingError(ValueError):
@@ -46,13 +39,13 @@ def load_document(path: Path, filename: str) -> list[LoadedText]:
 
     try:
         if suffix == ".pdf":
-            result = _load_pdf(path)
-        elif suffix == ".docx":
-            result = _load_docx(path)
-        elif suffix == ".txt":
-            result = _load_plain_text(path)
-        else:  # .md / .markdown
-            result = _load_markdown(path)
+            return _load_pdf(path)
+        if suffix == ".docx":
+            return _load_docx(path)
+        if suffix in {".txt"}:
+            return _load_plain_text(path)
+        if suffix in {".md", ".markdown"}:
+            return _load_markdown(path)
     except DocumentLoadingError:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -66,11 +59,6 @@ def load_document(path: Path, filename: str) -> list[LoadedText]:
 
 
 def _load_pdf(path: Path) -> list[LoadedText]:
-    """Extract text from a PDF, preserving page numbers.
-
-    Uses an adaptive approach: extracts digital text layers first,
-    and automatically falls back to OCR if the document is scanned.
-    """
     try:
         reader = PdfReader(str(path))
     except Exception as exc:  # noqa: BLE001
@@ -105,47 +93,6 @@ def _load_pdf(path: Path) -> list[LoadedText]:
 
     logger.debug("Extracted text from %d/%d PDF page(s).", len(pages), total_pages)
     return pages
-
-
-def _execute_pdf_ocr(path: Path) -> list[LoadedText]:
-    """Convert PDF pages into high-resolution images and run Tesseract OCR.
-
-    Uses soft imports to maintain environment stability across team machines.
-    """
-    try:
-        import pytesseract
-        from pdf2image import convert_from_path
-    except ImportError as exc:
-        logger.critical(
-            "OCR dependencies (pytesseract/pdf2image) are missing in the local environment."
-        )
-        raise DocumentLoadingError(
-            "This document is a scanned PDF and requires OCR tools. Please install "
-            "'tesseract' and 'poppler'."
-        ) from exc
-
-    ocr_pages: list[LoadedText] = []
-    try:
-        images = convert_from_path(str(path), dpi=200)
-
-        for index, img in enumerate(images, start=1):
-            raw_ocr_text = pytesseract.image_to_string(img, lang="eng")
-            cleaned_ocr = clean_text(raw_ocr_text)
-            if cleaned_ocr:
-                ocr_pages.append(LoadedText(text=cleaned_ocr, page=index))
-
-        logger.info(
-            "Successfully completed OCR processing for %d page(s) of '%s'",
-            len(ocr_pages),
-            path.name,
-        )
-    except Exception as ocr_exc:  # noqa: BLE001
-        logger.error("OCR execution pipeline failed for %s: %s", path.name, ocr_exc)
-        raise DocumentLoadingError(
-            f"Failed to extract text from scanned PDF via OCR: {ocr_exc}"
-        ) from ocr_exc
-
-    return ocr_pages
 
 
 def _load_docx(path: Path) -> list[LoadedText]:
@@ -211,3 +158,40 @@ def _load_markdown(path: Path) -> list[LoadedText]:
             "The uploaded Markdown file is empty or contains no readable content."
         )
     return [LoadedText(text=text, page=None)]
+
+
+def _load_csv(path: Path) -> list[LoadedText]:
+    """Extract and structure data from a CSV file, treating rows as individual semantic texts."""
+    loaded_rows: list[LoadedText] = []
+
+    try:
+        with open(path, encoding="utf-8-sig", errors="ignore") as f:
+            reader = csv.DictReader(f)
+
+            if not reader.fieldnames:
+                raise DocumentLoadingError("The uploaded CSV file is missing column headers.")
+
+            for index, row in enumerate(reader, start=1):
+                row_parts = []
+                for key, value in row.items():
+                    if key and value:
+                        row_parts.append(f"{key.strip()}: {value.strip()}")
+
+                if not row_parts:
+                    continue
+
+                row_text = clean_text(", ".join(row_parts))
+
+                if row_text:
+                    loaded_rows.append(LoadedText(text=row_text, page=None, section=f"Row {index}"))
+
+    except DocumentLoadingError:
+        raise
+    except Exception as exc:
+        raise DocumentLoadingError(f"Failed to parse CSV structured data: {str(exc)}") from exc
+
+    if not loaded_rows:
+        raise DocumentLoadingError("The uploaded CSV file contains no readable data rows.")
+
+    logger.debug("Extracted %d structured data row(s) from CSV.", len(loaded_rows))
+    return loaded_rows
