@@ -1,8 +1,4 @@
-"""Internal dataclasses passed between RAG pipeline stages."""
-
-from dataclasses import dataclass, field
-
-MetadataValue = str | int | float | bool
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -26,7 +22,6 @@ class DocumentChunk:
     section: str | None
     source_path: str
     upload_time: str
-    metadata: dict[str, MetadataValue] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -36,3 +31,6 @@ class RetrievedChunk:
     chunk: DocumentChunk
     relevance_score: float
     source: str = "semantic"
+    suggested_tilt_angle: float | None = None
+    confidence_level: str = "Medium"
+    estimated_irradiation_gain: float | None = None
